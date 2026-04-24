@@ -2,6 +2,7 @@ import { TRPCError, initTRPC } from "@trpc/server";
 import superjson from "superjson";
 
 import { auth } from "@/auth";
+import { serverEnv } from "@/env-server";
 import { db } from "@/server/db";
 
 export async function createTRPCContext() {
@@ -19,10 +20,17 @@ export async function createTRPCContext() {
     userId = matchedUser?.id ?? null;
   }
 
+  // The owner user is the account whose places are publicly visible.
+  const ownerUser = await db.query.users.findFirst({
+    where: (users, { eq }) => eq(users.email, serverEnv.VALID_EMAIL)
+  });
+  const ownerUserId = ownerUser?.id ?? null;
+
   return {
     db,
     session,
-    userId
+    userId,
+    ownerUserId
   };
 }
 

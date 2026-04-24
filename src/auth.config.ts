@@ -17,8 +17,8 @@ export const authConfig = {
       const isLoggedIn = Boolean(auth?.user);
       const { pathname } = request.nextUrl;
 
-      const publicPaths = ["/login", "/api/auth"];
-      const isPublic = publicPaths.some((path) => pathname.startsWith(path));
+      const publicPrefixes = ["/login", "/api/auth", "/api/trpc", "/dashboard"];
+      const isPublic = pathname === "/" || publicPrefixes.some((path) => pathname.startsWith(path));
 
       if (isPublic) {
         return true;

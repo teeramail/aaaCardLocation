@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { placeInputSchema, placeSelectionSchema } from "@/server/api/schemas/place";
 import { samplePlaces } from "@/server/db/sample-places";
 import { dismissedSamples, placeImages, places, users, type Place, type PlaceImage } from "@/server/db/schema";
@@ -40,7 +40,7 @@ function normalizePlace(place: PlaceWithImages): NormalizedPlace {
 }
 
 export const placeRouter = createTRPCRouter({
-  list: protectedProcedure
+  list: publicProcedure
     .input(
       z
         .object({
@@ -49,10 +49,14 @@ export const placeRouter = createTRPCRouter({
         .optional()
     )
     .query(async ({ ctx, input }) => {
+      if (!ctx.ownerUserId) {
+        return [];
+      }
+
       const placeRows = await ctx.db.query.places.findMany({
         where: input?.ids?.length
-          ? and(eq(places.userId, ctx.userId), inArray(places.id, input.ids))
-          : eq(places.userId, ctx.userId),
+          ? and(eq(places.userId, ctx.ownerUserId), inArray(places.id, input.ids))
+          : eq(places.userId, ctx.ownerUserId),
         with: {
           images: {
             where: eq(placeImages.isPrimary, true),

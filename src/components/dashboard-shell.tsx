@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "next-auth";
 
@@ -26,7 +27,8 @@ export type PlaceRecord = {
   imageAlt: string | null;
 };
 
-export function DashboardShell(props: { session: Session }) {
+export function DashboardShell(props: { session: Session | null }) {
+  const isSignedIn = Boolean(props.session);
   const utils = trpc.useUtils();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingPlace, setEditingPlace] = useState<PlaceRecord | null>(null);
@@ -87,14 +89,25 @@ export function DashboardShell(props: { session: Session }) {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
               <p className="text-sm uppercase tracking-[0.3em] text-sky-300">MyMap Dashboard</p>
-              <h1 className="text-3xl font-semibold text-white">Welcome, {props.session.user.name}</h1>
+              <h1 className="text-3xl font-semibold text-white">
+                {props.session?.user?.name ? `Welcome, ${props.session.user.name}` : "Welcome to MyMap"}
+              </h1>
               <p className="max-w-3xl text-sm text-slate-300">
                 Save places anywhere, select only the ones you want to compare, and let the map fit those selected markers automatically.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <SignOutButton />
+              {isSignedIn ? (
+                <SignOutButton />
+              ) : (
+                <Link
+                  href="/login"
+                  className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-sky-400"
+                >
+                  Sign in to edit
+                </Link>
+              )}
             </div>
           </div>
         </header>
@@ -165,23 +178,25 @@ export function DashboardShell(props: { session: Session }) {
                             {place.latitude.toFixed(5)}, {place.longitude.toFixed(5)}
                           </p>
 
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setEditingPlace(place)}
-                              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteMutation.mutate({ id: place.id })}
-                              disabled={deleteMutation.isPending}
-                              className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-70"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                          {isSignedIn ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingPlace(place)}
+                                className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteMutation.mutate({ id: place.id })}
+                                disabled={deleteMutation.isPending}
+                                className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -196,15 +211,30 @@ export function DashboardShell(props: { session: Session }) {
               </div>
             </div>
 
-            <PlaceForm
-              editingPlace={editingPlace}
-              onCancelEdit={() => setEditingPlace(null)}
-              onSaved={async (message) => {
-                setStatusMessage(message);
-                setEditingPlace(null);
-                await utils.place.list.invalidate();
-              }}
-            />
+            {isSignedIn ? (
+              <PlaceForm
+                editingPlace={editingPlace}
+                onCancelEdit={() => setEditingPlace(null)}
+                onSaved={async (message) => {
+                  setStatusMessage(message);
+                  setEditingPlace(null);
+                  await utils.place.list.invalidate();
+                }}
+              />
+            ) : (
+              <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/70 p-5 text-sm text-slate-300 shadow-xl shadow-sky-950/20 backdrop-blur">
+                <p className="font-medium text-white">Want to add or edit places?</p>
+                <p className="mt-2 text-slate-400">
+                  Sign in to manage the map. Viewing is free for everyone.
+                </p>
+                <Link
+                  href="/login"
+                  className="mt-4 inline-block rounded-2xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-sky-400"
+                >
+                  Sign in
+                </Link>
+              </div>
+            )}
           </aside>
 
           <div className="space-y-6">
