@@ -2,11 +2,10 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { ensureUser } from "@/server/auth/sync-user";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { placeInputSchema, placeSelectionSchema } from "@/server/api/schemas/place";
 import { samplePlaces } from "@/server/db/sample-places";
-import { placeImages, places } from "@/server/db/schema";
+import { placeImages, places, users } from "@/server/db/schema";
 
 function normalizePlace<T extends { latitude: string; longitude: string; images?: Array<{ imageUrl: string; altText: string | null }>; }>(place: T) {
   return {
@@ -141,11 +140,16 @@ export const placeRouter = createTRPCRouter({
     return selectedPlaces.map((place) => normalizePlace(place));
   }),
   seedDefaults: protectedProcedure.mutation(async ({ ctx }) => {
-    const currentUser = await ensureUser({
-      email: ctx.session?.user.email ?? "",
-      name: ctx.session?.user.name ?? "Owner",
-      image: ctx.session?.user.image
+    const currentUser = await ctx.db.query.users.findFirst({
+      where: eq(users.id, ctx.userId)
     });
+
+    if (!currentUser) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Could not resolve the signed-in user. Please sign in again."
+      });
+    }
 
     const existingPlaces = await ctx.db.query.places.findMany({
       where: eq(places.userId, currentUser.id),

@@ -1,8 +1,9 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { z } from "zod";
 
+import { authConfig } from "@/auth.config";
 import { isGoogleAuthEnabled, serverEnv } from "@/env-server";
 import { ensureUser } from "@/server/auth/sync-user";
 
@@ -11,7 +12,7 @@ const credentialsSchema = z.object({
   password: z.string().min(1)
 });
 
-const providers = [
+const providers: NextAuthConfig["providers"] = [
   Credentials({
     credentials: {
       email: { label: "Email", type: "email" },
@@ -56,15 +57,11 @@ if (isGoogleAuthEnabled) {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   secret: serverEnv.AUTH_SECRET,
-  session: {
-    strategy: "jwt"
-  },
   providers,
-  pages: {
-    signIn: "/login"
-  },
   callbacks: {
+    ...authConfig.callbacks,
     async signIn({ user }) {
       if (!user.email) {
         return false;

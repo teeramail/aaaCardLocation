@@ -52,17 +52,24 @@ export function DashboardShell(props: { session: Session }) {
     }
   });
 
-  const places = placesQuery.data ?? [];
+  const places = useMemo(() => placesQuery.data ?? [], [placesQuery.data]);
 
   useEffect(() => {
-    setSelectedIds((current) => current.filter((id) => places.some((place) => place.id === id)));
+    setSelectedIds((current) => {
+      const next = current.filter((id) => places.some((place) => place.id === id));
+      return next.length === current.length ? current : next;
+    });
+  }, [places]);
 
+  useEffect(() => {
     if (!editingPlace) {
       return;
     }
 
     const refreshedPlace = places.find((place) => place.id === editingPlace.id) ?? null;
-    setEditingPlace(refreshedPlace);
+    if (refreshedPlace !== editingPlace) {
+      setEditingPlace(refreshedPlace);
+    }
   }, [editingPlace, places]);
 
   const selectedPlaces = useMemo(

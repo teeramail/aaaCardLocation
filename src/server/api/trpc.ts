@@ -6,11 +6,23 @@ import { db } from "@/server/db";
 
 export async function createTRPCContext() {
   const session = await auth();
+  const sessionUserId = session?.user?.id?.trim() ? session.user.id : null;
+  const sessionUserEmail = session?.user?.email?.trim() ? session.user.email : null;
+
+  let userId = sessionUserId;
+
+  if (!userId && sessionUserEmail) {
+    const matchedUser = await db.query.users.findFirst({
+      where: (users, { eq }) => eq(users.email, sessionUserEmail)
+    });
+
+    userId = matchedUser?.id ?? null;
+  }
 
   return {
     db,
     session,
-    userId: session?.user?.id ?? null
+    userId
   };
 }
 
