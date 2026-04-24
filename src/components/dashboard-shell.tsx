@@ -33,16 +33,6 @@ export function DashboardShell(props: { session: Session }) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const placesQuery = trpc.place.list.useQuery();
-  const seedMutation = trpc.place.seedDefaults.useMutation({
-    onSuccess: async (result) => {
-      setStatusMessage(
-        result.created > 0
-          ? `Added ${result.created} sample places.`
-          : "Sample places already exist."
-      );
-      await utils.place.list.invalidate();
-    }
-  });
 
   const deleteMutation = trpc.place.delete.useMutation({
     onSuccess: async () => {
@@ -103,17 +93,7 @@ export function DashboardShell(props: { session: Session }) {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => seedMutation.mutate()}
-                disabled={seedMutation.isPending}
-                className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {seedMutation.isPending ? "Adding samples..." : "Add sample places"}
-              </button>
-              <SignOutButton />
-            </div>
+            <SignOutButton />
           </div>
         </header>
 
