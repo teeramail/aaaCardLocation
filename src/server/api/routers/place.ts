@@ -5,23 +5,28 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { placeInputSchema, placeSelectionSchema } from "@/server/api/schemas/place";
 import { samplePlaces } from "@/server/db/sample-places";
-import { placeImages, places, users } from "@/server/db/schema";
+import { placeImages, places, users, type Place, type PlaceImage } from "@/server/db/schema";
 
-type NormalizeInput = {
-  latitude: string;
-  longitude: string;
-  images?: Array<{ imageUrl: string; altText: string | null }>;
-  [key: string]: unknown;
+type PlaceWithImages = Place & {
+  images: PlaceImage[];
 };
 
-function normalizePlace<T extends NormalizeInput>(place: T) {
-  const { images, ...rest } = place;
+type NormalizedPlace = Omit<Place, "latitude" | "longitude"> & {
+  latitude: number;
+  longitude: number;
+  imageUrl: string | null;
+  imageAlt: string | null;
+};
+
+function normalizePlace(place: PlaceWithImages): NormalizedPlace {
+  const { images, latitude, longitude, ...rest } = place;
+  const primaryImage = images[0];
   return {
     ...rest,
-    latitude: Number(place.latitude),
-    longitude: Number(place.longitude),
-    imageUrl: images?.[0]?.imageUrl ?? null,
-    imageAlt: images?.[0]?.altText ?? null
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    imageUrl: primaryImage?.imageUrl ?? null,
+    imageAlt: primaryImage?.altText ?? null
   };
 }
 
