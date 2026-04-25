@@ -2,12 +2,13 @@
 
 import {
   APIProvider,
+  InfoWindow,
   Map,
   Marker,
   Polyline,
   useMap
 } from "@vis.gl/react-google-maps";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { clientEnv } from "@/env-client";
 import type { PlaceRecord } from "@/components/dashboard-shell";
@@ -44,6 +45,13 @@ export function PlacesMap(props: {
   selectedIds: string[];
   onToggleSelect: (placeId: string) => void;
 }) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const activePlace = useMemo(
+    () => props.places.find((place) => place.id === activeId) ?? null,
+    [activeId, props.places]
+  );
+
   const path = useMemo(
     () =>
       props.places.map((place) => ({
@@ -74,11 +82,47 @@ export function PlacesMap(props: {
             <Marker
               key={place.id}
               position={{ lat: place.latitude, lng: place.longitude }}
-              onClick={() => props.onToggleSelect(place.id)}
+              onClick={() => setActiveId(place.id)}
               title={place.name}
               opacity={props.selectedIds.length === 0 || props.selectedIds.includes(place.id) ? 1 : 0.5}
             />
           ))}
+
+          {activePlace ? (
+            <InfoWindow
+              position={{ lat: activePlace.latitude, lng: activePlace.longitude }}
+              onCloseClick={() => setActiveId(null)}
+              pixelOffset={[0, -34]}
+            >
+              <div style={{ minWidth: 180, color: "#0f172a" }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{activePlace.name}</div>
+                {activePlace.city || activePlace.country ? (
+                  <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
+                    {[activePlace.city, activePlace.country].filter(Boolean).join(", ")}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    props.onToggleSelect(activePlace.id);
+                  }}
+                  style={{
+                    marginTop: 8,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: "1px solid #0ea5e9",
+                    background: props.selectedIds.includes(activePlace.id) ? "#0ea5e9" : "#fff",
+                    color: props.selectedIds.includes(activePlace.id) ? "#fff" : "#0ea5e9",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer"
+                  }}
+                >
+                  {props.selectedIds.includes(activePlace.id) ? "Deselect" : "Select"}
+                </button>
+              </div>
+            </InfoWindow>
+          ) : null}
 
           {path.length >= 2 ? (
             <Polyline
