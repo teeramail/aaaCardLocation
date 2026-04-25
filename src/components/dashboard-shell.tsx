@@ -84,8 +84,8 @@ export function DashboardShell(props: { session: Session | null }) {
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <header className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-sky-950/20 backdrop-blur">
+      <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <header className="order-2 rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-sky-950/20 backdrop-blur xl:order-none xl:col-span-2">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
               <p className="text-sm uppercase tracking-[0.3em] text-sky-300">MyMap Dashboard</p>
@@ -112,8 +112,7 @@ export function DashboardShell(props: { session: Session | null }) {
           </div>
         </header>
 
-        <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="order-2 space-y-6 xl:order-none">
+        <aside className="order-3 space-y-6 xl:order-none xl:col-start-1 xl:row-start-2">
             <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
@@ -235,9 +234,9 @@ export function DashboardShell(props: { session: Session | null }) {
                 </Link>
               </div>
             )}
-          </aside>
+        </aside>
 
-          <div className="order-1 space-y-6 xl:order-none">
+        <div className="order-1 space-y-6 xl:order-none xl:col-start-2 xl:row-start-2">
             <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-4 shadow-xl shadow-sky-950/20 backdrop-blur">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
                 <div>
@@ -305,8 +304,7 @@ export function DashboardShell(props: { session: Session | null }) {
                 </p>
               ) : null}
             </div>
-          </div>
-        </section>
+        </div>
       </div>
     </main>
   );
