@@ -113,7 +113,7 @@ export function DashboardShell(props: { session: Session | null }) {
         </header>
 
         <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="space-y-6">
+          <aside className="order-2 space-y-6 xl:order-none">
             <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
@@ -237,7 +237,7 @@ export function DashboardShell(props: { session: Session | null }) {
             )}
           </aside>
 
-          <div className="space-y-6">
+          <div className="order-1 space-y-6 xl:order-none">
             <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-4 shadow-xl shadow-sky-950/20 backdrop-blur">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
                 <div>
