@@ -49,6 +49,7 @@ export const places = pgTable(
     city: varchar("city", { length: 120 }),
     country: varchar("country", { length: 120 }),
     category: placeCategoryEnum("category").notNull().default("primary_school"),
+    isMain: boolean("is_main").notNull().default(false),
     latitude: numeric("latitude", { precision: 10, scale: 7 }).notNull(),
     longitude: numeric("longitude", { precision: 10, scale: 7 }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

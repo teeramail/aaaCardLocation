@@ -11,7 +11,7 @@ const defaultValues = {
   description: "",
   city: "",
   country: "",
-  category: "primary_school",
+  isMain: false,
   latitude: "",
   longitude: ""
 } as const;
@@ -21,7 +21,7 @@ type FormValues = {
   description: string;
   city: string;
   country: string;
-  category: "primary_school" | "secondary_school" | "university" | "office" | "home" | "other";
+  isMain: boolean;
   latitude: string;
   longitude: string;
 };
@@ -49,7 +49,7 @@ function createValuesFromPlace(place: PlaceRecord | null): FormValues {
     description: place.description ?? "",
     city: place.city ?? "",
     country: place.country ?? "",
-    category: place.category,
+    isMain: place.isMain,
     latitude: place.latitude.toString(),
     longitude: place.longitude.toString()
   };
@@ -166,44 +166,38 @@ export function PlaceForm(props: {
             description: values.description || null,
             city: values.city || null,
             country: values.country || null,
-            category: values.category,
+            isMain: values.isMain,
             latitude,
             longitude
           });
         }}
       >
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-200">Name</span>
-            <input
-              value={values.name}
-              onChange={(event) => setValues((current) => ({ ...current, name: event.target.value }))}
-              required
-              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400"
-            />
-          </label>
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-slate-200">Name</span>
+          <input
+            value={values.name}
+            onChange={(event) => setValues((current) => ({ ...current, name: event.target.value }))}
+            required
+            className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400"
+          />
+        </label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-200">Category</span>
-            <select
-              value={values.category}
-              onChange={(event) =>
-                setValues((current) => ({
-                  ...current,
-                  category: event.target.value as FormValues["category"]
-                }))
-              }
-              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400"
-            >
-              <option value="primary_school">Primary school</option>
-              <option value="secondary_school">Secondary school</option>
-              <option value="university">University</option>
-              <option value="office">Office</option>
-              <option value="home">Home</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-        </div>
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3">
+          <input
+            type="checkbox"
+            checked={values.isMain}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, isMain: event.target.checked }))
+            }
+            className="h-4 w-4 rounded border-white/20 bg-slate-900 text-emerald-400"
+          />
+          <span className="text-sm text-slate-200">
+            <span className="font-medium text-white">Main place</span>
+            <span className="ml-2 text-xs text-slate-400">
+              Marker turns green and distances are measured from here. Only one main place is allowed.
+            </span>
+          </span>
+        </label>
 
         <label className="space-y-2">
           <span className="text-sm font-medium text-slate-200">Description</span>

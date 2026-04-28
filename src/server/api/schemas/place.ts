@@ -18,6 +18,7 @@ export const placeInputSchema = z.object({
   city: z.string().trim().max(120).optional().nullable(),
   country: z.string().trim().max(120).optional().nullable(),
   category: placeCategorySchema.default("primary_school"),
+  isMain: z.boolean().optional().default(false),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180)
 });

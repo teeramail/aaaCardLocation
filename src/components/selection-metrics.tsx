@@ -11,52 +11,66 @@ function useGeometryDistances(places: PlaceRecord[]) {
   const geometryLib = useMapsLibrary("geometry");
 
   return useMemo(() => {
-    if (!geometryLib || places.length < 2) {
-      return {
-        totalDistance: 0,
-        segments: [] as Array<{ from: string; to: string; distance: number }>
-      };
+    const empty = {
+      totalDistance: 0,
+      segments: [] as Array<{ from: string; to: string; distance: number }>,
+      hasMain: false
+    };
+
+    if (!geometryLib) {
+      return empty;
     }
 
-    const segments = places.slice(1).map((place, index) => {
-      const previousPlace = places[index]!;
-      const distance = geometryLib.spherical.computeDistanceBetween(
-        new google.maps.LatLng(previousPlace.latitude, previousPlace.longitude),
-        new google.maps.LatLng(place.latitude, place.longitude)
-      );
+    const main = places.find((place) => place.isMain);
+    if (!main) {
+      return empty;
+    }
 
-      return {
-        from: previousPlace.name,
-        to: place.name,
-        distance
-      };
-    });
+    const others = places.filter((place) => place.id !== main.id);
+    if (others.length === 0) {
+      return { ...empty, hasMain: true };
+    }
+
+    const origin = new google.maps.LatLng(main.latitude, main.longitude);
+    const segments = others.map((place) => ({
+      from: main.name,
+      to: place.name,
+      distance: geometryLib.spherical.computeDistanceBetween(
+        origin,
+        new google.maps.LatLng(place.latitude, place.longitude)
+      )
+    }));
 
     return {
       totalDistance: segments.reduce((sum, segment) => sum + segment.distance, 0),
-      segments
+      segments,
+      hasMain: true
     };
   }, [geometryLib, places]);
 }
 
 function MetricsContent(props: { places: PlaceRecord[] }) {
-  const { totalDistance, segments } = useGeometryDistances(props.places);
+  const { totalDistance, segments, hasMain } = useGeometryDistances(props.places);
 
   return (
     <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
       <h2 className="text-lg font-semibold text-white">Distance metrics</h2>
       <p className="mt-2 text-sm text-slate-400">
-        Select at least 2 places to see straight-line distances and the total path length.
+        Mark one place as <span className="font-medium text-emerald-300">Main</span> (green marker). All other markers (red) show their straight-line distance from it.
       </p>
 
-      {props.places.length < 2 ? (
+      {!hasMain ? (
         <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-400">
-          Choose 2 or more places from the list to start measuring.
+          No main place set. Edit any place and tick &ldquo;Main place&rdquo; to start measuring.
+        </div>
+      ) : segments.length === 0 ? (
+        <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-400">
+          Add another place to compare distance from the main place.
         </div>
       ) : (
         <div className="mt-4 space-y-3">
           <div className="rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
-            <p className="text-sm text-sky-100">Total selected path</p>
+            <p className="text-sm text-sky-100">Sum of distances from main</p>
             <p className="mt-1 text-2xl font-semibold text-white">{formatDistanceLabel(totalDistance)}</p>
           </div>
 

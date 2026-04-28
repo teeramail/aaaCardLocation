@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -70,6 +70,17 @@ export const placeRouter = createTRPCRouter({
       return placeRows.map((place) => normalizePlace(place));
     }),
   upsert: protectedProcedure.input(placeInputSchema).mutation(async ({ ctx, input }) => {
+    if (input.isMain) {
+      await ctx.db
+        .update(places)
+        .set({ isMain: false })
+        .where(
+          input.id
+            ? and(eq(places.userId, ctx.userId), ne(places.id, input.id))
+            : eq(places.userId, ctx.userId)
+        );
+    }
+
     if (input.id) {
       const existingPlace = await ctx.db.query.places.findFirst({
         where: and(eq(places.id, input.id), eq(places.userId, ctx.userId)),
@@ -97,6 +108,7 @@ export const placeRouter = createTRPCRouter({
           city: input.city ?? null,
           country: input.country ?? null,
           category: input.category,
+          isMain: input.isMain,
           latitude: input.latitude.toString(),
           longitude: input.longitude.toString(),
           updatedAt: new Date()
@@ -119,6 +131,7 @@ export const placeRouter = createTRPCRouter({
         city: input.city ?? null,
         country: input.country ?? null,
         category: input.category,
+        isMain: input.isMain,
         latitude: input.latitude.toString(),
         longitude: input.longitude.toString()
       })

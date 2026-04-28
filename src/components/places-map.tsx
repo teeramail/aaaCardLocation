@@ -52,14 +52,23 @@ export function PlacesMap(props: {
     [activeId, props.places]
   );
 
-  const path = useMemo(
-    () =>
-      props.places.map((place) => ({
-        lat: place.latitude,
-        lng: place.longitude
-      })),
+  const mainPlace = useMemo(
+    () => props.places.find((place) => place.isMain) ?? null,
     [props.places]
   );
+
+  const distancePaths = useMemo(() => {
+    if (!mainPlace) {
+      return [] as Array<{ id: string; path: Array<{ lat: number; lng: number }> }>;
+    }
+    const origin = { lat: mainPlace.latitude, lng: mainPlace.longitude };
+    return props.places
+      .filter((place) => place.id !== mainPlace.id)
+      .map((place) => ({
+        id: place.id,
+        path: [origin, { lat: place.latitude, lng: place.longitude }]
+      }));
+  }, [mainPlace, props.places]);
 
   const defaultCenter = props.places[0]
     ? { lat: props.places[0].latitude, lng: props.places[0].longitude }
@@ -83,7 +92,13 @@ export function PlacesMap(props: {
               key={place.id}
               position={{ lat: place.latitude, lng: place.longitude }}
               onClick={() => setActiveId(place.id)}
-              title={place.name}
+              title={place.isMain ? `${place.name} (Main)` : place.name}
+              icon={
+                place.isMain
+                  ? "https://maps.google.com/mapfiles/ms/icons/green-dot.png"
+                  : "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
+              }
+              zIndex={place.isMain ? 999 : undefined}
               opacity={props.selectedIds.length === 0 || props.selectedIds.includes(place.id) ? 1 : 0.5}
             />
           ))}
@@ -124,14 +139,15 @@ export function PlacesMap(props: {
             </InfoWindow>
           ) : null}
 
-          {path.length >= 2 ? (
+          {distancePaths.map((segment) => (
             <Polyline
-              path={path}
+              key={segment.id}
+              path={segment.path}
               strokeColor="#38bdf8"
               strokeOpacity={0.8}
               strokeWeight={3}
             />
-          ) : null}
+          ))}
         </Map>
       </div>
     </APIProvider>

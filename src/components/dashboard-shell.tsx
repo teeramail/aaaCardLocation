@@ -19,6 +19,7 @@ export type PlaceRecord = {
   city: string | null;
   country: string | null;
   category: "primary_school" | "secondary_school" | "university" | "office" | "home" | "other";
+  isMain: boolean;
   latitude: number;
   longitude: number;
   createdAt: Date;
@@ -164,9 +165,11 @@ export function DashboardShell(props: { session: Session | null }) {
                                 {place.city ?? "Unknown city"} · {place.country ?? "Unknown country"}
                               </p>
                             </div>
-                            <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-300">
-                              {place.category.replaceAll("_", " ")}
-                            </span>
+                            {place.isMain ? (
+                              <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
+                                Main
+                              </span>
+                            ) : null}
                           </div>
 
                           <p className="mt-2 line-clamp-2 text-sm text-slate-300">
@@ -266,7 +269,7 @@ export function DashboardShell(props: { session: Session | null }) {
               />
             </div>
 
-            <SelectionMetrics places={selectedPlaces} />
+            <SelectionMetrics places={visiblePlaces} />
 
             <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
               <h2 className="text-lg font-semibold text-white">Selection tips</h2>
