@@ -293,6 +293,10 @@ export function DashboardShell(props: { session: Session | null }) {
                 onEditPlace={(place) => {
                   setEditingPlace(place);
                 }}
+                onPlaceSaved={async () => {
+                  setStatusMessage("Place updated.");
+                  await utils.place.list.invalidate();
+                }}
               />
             </div>
 
