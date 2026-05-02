@@ -266,6 +266,9 @@ export function DashboardShell(props: { session: Session | null }) {
                       : [...current, placeId]
                   );
                 }}
+                onEditPlace={(place) => {
+                  setEditingPlace(place);
+                }}
               />
             </div>
 

@@ -44,6 +44,7 @@ export function PlacesMap(props: {
   places: PlaceRecord[];
   selectedIds: string[];
   onToggleSelect: (placeId: string) => void;
+  onEditPlace?: (place: PlaceRecord) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -116,25 +117,54 @@ export function PlacesMap(props: {
                     {[activePlace.city, activePlace.country].filter(Boolean).join(", ")}
                   </div>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => {
-                    props.onToggleSelect(activePlace.id);
-                  }}
+                <div
                   style={{
+                    display: "flex",
+                    gap: 8,
                     marginTop: 8,
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    border: "1px solid #0ea5e9",
-                    background: props.selectedIds.includes(activePlace.id) ? "#0ea5e9" : "#fff",
-                    color: props.selectedIds.includes(activePlace.id) ? "#fff" : "#0ea5e9",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer"
+                    flexWrap: "wrap"
                   }}
                 >
-                  {props.selectedIds.includes(activePlace.id) ? "Deselect" : "Select"}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      props.onToggleSelect(activePlace.id);
+                    }}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #0ea5e9",
+                      background: props.selectedIds.includes(activePlace.id) ? "#0ea5e9" : "#fff",
+                      color: props.selectedIds.includes(activePlace.id) ? "#fff" : "#0ea5e9",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer"
+                    }}
+                  >
+                    {props.selectedIds.includes(activePlace.id) ? "Deselect" : "Select"}
+                  </button>
+                  {props.onEditPlace ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        props.onEditPlace?.(activePlace);
+                        setActiveId(null);
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #0f172a",
+                        background: "#0f172a",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer"
+                      }}
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </InfoWindow>
           ) : null}
