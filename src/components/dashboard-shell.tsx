@@ -65,6 +65,15 @@ export function DashboardShell(props: { session: Session | null }) {
     }
   }, [editingPlace, places]);
 
+  useEffect(() => {
+    if (!editingPlace) {
+      return;
+    }
+
+    const card = document.getElementById(`place-card-${editingPlace.id}`);
+    card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [editingPlace]);
+
   const selectedPlaces = useMemo(
     () => places.filter((place) => selectedIds.includes(place.id)),
     [places, selectedIds]
@@ -135,10 +144,12 @@ export function DashboardShell(props: { session: Session | null }) {
               <div className="space-y-3">
                 {places.map((place) => {
                   const isSelected = selectedIds.includes(place.id);
+                  const isEditing = editingPlace?.id === place.id;
 
                   return (
                     <div
                       key={place.id}
+                      id={`place-card-${place.id}`}
                       className={isSelected ? "rounded-2xl border border-sky-400/50 bg-sky-500/10 p-4" : "rounded-2xl border border-white/10 bg-slate-900/60 p-4"}
                     >
                       <div className="flex items-start gap-3">
@@ -184,10 +195,10 @@ export function DashboardShell(props: { session: Session | null }) {
                             <div className="mt-3 flex flex-wrap gap-2">
                               <button
                                 type="button"
-                                onClick={() => setEditingPlace(place)}
+                                onClick={() => setEditingPlace(isEditing ? null : place)}
                                 className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
                               >
-                                Edit
+                                {isEditing ? "Close editor" : "Edit"}
                               </button>
                               <button
                                 type="button"
@@ -197,6 +208,20 @@ export function DashboardShell(props: { session: Session | null }) {
                               >
                                 Delete
                               </button>
+                            </div>
+                          ) : null}
+
+                          {isSignedIn && isEditing ? (
+                            <div className="mt-4">
+                              <PlaceForm
+                                editingPlace={place}
+                                onCancelEdit={() => setEditingPlace(null)}
+                                onSaved={async (message) => {
+                                  setStatusMessage(message);
+                                  setEditingPlace(null);
+                                  await utils.place.list.invalidate();
+                                }}
+                              />
                             </div>
                           ) : null}
                         </div>
@@ -215,11 +240,10 @@ export function DashboardShell(props: { session: Session | null }) {
 
             {isSignedIn ? (
               <PlaceForm
-                editingPlace={editingPlace}
-                onCancelEdit={() => setEditingPlace(null)}
+                editingPlace={null}
+                onCancelEdit={() => undefined}
                 onSaved={async (message) => {
                   setStatusMessage(message);
-                  setEditingPlace(null);
                   await utils.place.list.invalidate();
                 }}
               />
