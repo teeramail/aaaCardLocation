@@ -358,6 +358,7 @@ export function PlacesMap(props: {
                   <>
                     {activePlace.imageUrl ? (
                       <div style={{ marginBottom: 8, borderRadius: 8, overflow: "hidden" }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={activePlace.imageUrl}
                           alt={activePlace.imageAlt ?? activePlace.name}

@@ -1,43 +1,30 @@
 "use client";
 
-import { APIProvider, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useMemo } from "react";
 
-import { clientEnv } from "@/env-client";
 import type { PlaceRecord } from "@/components/dashboard-shell";
-import { formatDistanceLabel } from "@/lib/utils";
+import { calculateDistanceBetween, formatDistanceLabel } from "@/lib/utils";
 
-function useGeometryDistances(places: PlaceRecord[]) {
-  const geometryLib = useMapsLibrary("geometry");
-
-  return useMemo(() => {
+export function SelectionMetrics(props: { places: PlaceRecord[] }) {
+  const { totalDistance, segments, hasMain } = useMemo(() => {
     const empty = {
       totalDistance: 0,
       segments: [] as Array<{ from: string; to: string; distance: number }>,
       hasMain: false
     };
 
-    if (!geometryLib) {
-      return empty;
-    }
+    const main = props.places.find((place) => place.isMain);
+    if (!main) return empty;
 
-    const main = places.find((place) => place.isMain);
-    if (!main) {
-      return empty;
-    }
+    const others = props.places.filter((place) => place.id !== main.id);
+    if (others.length === 0) return { ...empty, hasMain: true };
 
-    const others = places.filter((place) => place.id !== main.id);
-    if (others.length === 0) {
-      return { ...empty, hasMain: true };
-    }
-
-    const origin = new google.maps.LatLng(main.latitude, main.longitude);
     const segments = others.map((place) => ({
       from: main.name,
       to: place.name,
-      distance: geometryLib.spherical.computeDistanceBetween(
-        origin,
-        new google.maps.LatLng(place.latitude, place.longitude)
+      distance: calculateDistanceBetween(
+        { lat: main.latitude, lng: main.longitude },
+        { lat: place.latitude, lng: place.longitude }
       )
     }));
 
@@ -46,11 +33,7 @@ function useGeometryDistances(places: PlaceRecord[]) {
       segments,
       hasMain: true
     };
-  }, [geometryLib, places]);
-}
-
-function MetricsContent(props: { places: PlaceRecord[] }) {
-  const { totalDistance, segments, hasMain } = useGeometryDistances(props.places);
+  }, [props.places]);
 
   return (
     <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
@@ -85,13 +68,5 @@ function MetricsContent(props: { places: PlaceRecord[] }) {
         </div>
       )}
     </div>
-  );
-}
-
-export function SelectionMetrics(props: { places: PlaceRecord[] }) {
-  return (
-    <APIProvider apiKey={clientEnv.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY} libraries={["geometry"]}>
-      <MetricsContent places={props.places} />
-    </APIProvider>
   );
 }

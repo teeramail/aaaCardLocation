@@ -12,7 +12,8 @@ const pool =
   globalForDb.dbPool ??
   new Pool({
     connectionString: serverEnv.DATABASE_URL,
-    max: 10
+    max: 5,
+    idleTimeoutMillis: 20_000
   });
 
 if (serverEnv.NODE_ENV !== "production") {

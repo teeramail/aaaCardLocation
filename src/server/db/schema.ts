@@ -1,4 +1,4 @@
-import { relations, sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -147,16 +147,3 @@ export type Place = typeof places.$inferSelect;
 export type PlaceImage = typeof placeImages.$inferSelect;
 export type UserTrack = typeof userTracks.$inferSelect;
 
-export const placesSelectSql = sql`
-  ${places.id},
-  ${places.userId},
-  ${places.name},
-  ${places.description},
-  ${places.city},
-  ${places.country},
-  ${places.category},
-  ${places.latitude},
-  ${places.longitude},
-  ${places.createdAt},
-  ${places.updatedAt}
-`;

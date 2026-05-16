@@ -5,15 +5,14 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { placeInputSchema, placeSelectionSchema } from "@/server/api/schemas/place";
 import { samplePlaces } from "@/server/db/sample-places";
-import { dismissedSamples, placeImages, places, users, type Place, type PlaceImage } from "@/server/db/schema";
-import { samplePlaces as samplePlacesData } from "@/server/db/sample-places";
+import { dismissedSamples, placeImages, places, type Place, type PlaceImage } from "@/server/db/schema";
 
 function buildSampleKey(name: string, city: string | null) {
   return `${name}::${city ?? ""}`;
 }
 
 const sampleKeySet = new Set(
-  samplePlacesData.map((place) => buildSampleKey(place.name, place.city))
+  samplePlaces.map((place) => buildSampleKey(place.name, place.city))
 );
 
 type PlaceWithImages = Place & {
@@ -72,39 +71,64 @@ export const placeRouter = createTRPCRouter({
       return placeRows.map((place) => normalizePlace(place));
     }),
   upsert: protectedProcedure.input(placeInputSchema).mutation(async ({ ctx, input }) => {
-    if (input.isMain) {
-      await ctx.db
-        .update(places)
-        .set({ isMain: false })
-        .where(
-          input.id
-            ? and(eq(places.userId, ctx.userId), ne(places.id, input.id))
-            : eq(places.userId, ctx.userId)
-        );
-    }
+    return await ctx.db.transaction(async (tx) => {
+      if (input.isMain) {
+        await tx
+          .update(places)
+          .set({ isMain: false })
+          .where(
+            input.id
+              ? and(eq(places.userId, ctx.userId), ne(places.id, input.id))
+              : eq(places.userId, ctx.userId)
+          );
+      }
 
-    if (input.id) {
-      const existingPlace = await ctx.db.query.places.findFirst({
-        where: and(eq(places.id, input.id), eq(places.userId, ctx.userId)),
-        with: {
-          images: {
-            where: eq(placeImages.isPrimary, true),
-            orderBy: [desc(placeImages.createdAt)],
-            limit: 1
+      if (input.id) {
+        const existingPlace = await tx.query.places.findFirst({
+          where: and(eq(places.id, input.id), eq(places.userId, ctx.userId)),
+          with: {
+            images: {
+              where: eq(placeImages.isPrimary, true),
+              orderBy: [desc(placeImages.createdAt)],
+              limit: 1
+            }
           }
-        }
-      });
+        });
 
-      if (!existingPlace) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "The place you want to update was not found."
+        if (!existingPlace) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "The place you want to update was not found."
+          });
+        }
+
+        const [updatedPlace] = await tx
+          .update(places)
+          .set({
+            name: input.name,
+            description: input.description ?? null,
+            city: input.city ?? null,
+            country: input.country ?? null,
+            category: input.category,
+            isMain: input.isMain,
+            latitude: input.latitude.toString(),
+            longitude: input.longitude.toString(),
+            linkUrl: input.linkUrl ?? null,
+            updatedAt: new Date()
+          })
+          .where(and(eq(places.id, input.id), eq(places.userId, ctx.userId)))
+          .returning();
+
+        return normalizePlace({
+          ...updatedPlace,
+          images: existingPlace.images
         });
       }
 
-      const [updatedPlace] = await ctx.db
-        .update(places)
-        .set({
+      const [createdPlace] = await tx
+        .insert(places)
+        .values({
+          userId: ctx.userId,
           name: input.name,
           description: input.description ?? null,
           city: input.city ?? null,
@@ -113,37 +137,14 @@ export const placeRouter = createTRPCRouter({
           isMain: input.isMain,
           latitude: input.latitude.toString(),
           longitude: input.longitude.toString(),
-          linkUrl: input.linkUrl ?? null,
-          updatedAt: new Date()
+          linkUrl: input.linkUrl ?? null
         })
-        .where(and(eq(places.id, input.id), eq(places.userId, ctx.userId)))
         .returning();
 
       return normalizePlace({
-        ...updatedPlace,
-        images: existingPlace.images
+        ...createdPlace,
+        images: []
       });
-    }
-
-    const [createdPlace] = await ctx.db
-      .insert(places)
-      .values({
-        userId: ctx.userId,
-        name: input.name,
-        description: input.description ?? null,
-        city: input.city ?? null,
-        country: input.country ?? null,
-        category: input.category,
-        isMain: input.isMain,
-        latitude: input.latitude.toString(),
-        longitude: input.longitude.toString(),
-        linkUrl: input.linkUrl ?? null
-      })
-      .returning();
-
-    return normalizePlace({
-      ...createdPlace,
-      images: []
     });
   }),
   delete: protectedProcedure
@@ -192,29 +193,16 @@ export const placeRouter = createTRPCRouter({
     return selectedPlaces.map((place) => normalizePlace(place));
   }),
   seedDefaults: protectedProcedure.mutation(async ({ ctx }) => {
-    const currentUser = await ctx.db.query.users.findFirst({
-      where: eq(users.id, ctx.userId)
-    });
-
-    if (!currentUser) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Could not resolve the signed-in user. Please sign in again."
-      });
-    }
-
-    const existingPlaces = await ctx.db.query.places.findMany({
-      where: eq(places.userId, currentUser.id),
-      columns: {
-        name: true,
-        city: true
-      }
-    });
-
-    const dismissedRows = await ctx.db.query.dismissedSamples.findMany({
-      where: eq(dismissedSamples.userId, currentUser.id),
-      columns: { sampleKey: true }
-    });
+    const [existingPlaces, dismissedRows] = await Promise.all([
+      ctx.db.query.places.findMany({
+        where: eq(places.userId, ctx.userId),
+        columns: { name: true, city: true }
+      }),
+      ctx.db.query.dismissedSamples.findMany({
+        where: eq(dismissedSamples.userId, ctx.userId),
+        columns: { sampleKey: true }
+      })
+    ]);
 
     const existingKeys = new Set(existingPlaces.map((place) => buildSampleKey(place.name, place.city)));
     const dismissedKeys = new Set(dismissedRows.map((row) => row.sampleKey));
@@ -225,14 +213,12 @@ export const placeRouter = createTRPCRouter({
     });
 
     if (placesToInsert.length === 0) {
-      return {
-        created: 0
-      };
+      return { created: 0 };
     }
 
     await ctx.db.insert(places).values(
       placesToInsert.map((place) => ({
-        userId: currentUser.id,
+        userId: ctx.userId,
         name: place.name,
         description: place.description,
         city: place.city,
@@ -243,8 +229,6 @@ export const placeRouter = createTRPCRouter({
       }))
     );
 
-    return {
-      created: placesToInsert.length
-    };
+    return { created: placesToInsert.length };
   })
 });
