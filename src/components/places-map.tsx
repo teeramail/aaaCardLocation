@@ -9,10 +9,12 @@ import {
   useMap
 } from "@vis.gl/react-google-maps";
 import { useEffect, useMemo, useState } from "react";
+import type { MapMouseEvent } from "@vis.gl/react-google-maps";
 
 import { clientEnv } from "@/env-client";
 import type { PlaceRecord } from "@/components/dashboard-shell";
 import { trpc } from "@/trpc/react";
+import { calculateDistanceBetween } from "@/lib/utils";
 
 function FitBounds(props: { places: PlaceRecord[] }) {
   const map = useMap();
@@ -43,6 +45,7 @@ function FitBounds(props: { places: PlaceRecord[] }) {
 
 export function PlacesMap(props: {
   places: PlaceRecord[];
+  tracks?: Array<{ id: string; name: string; points: Array<{ lat: number; lng: number; ele?: number }> }>;
   selectedIds: string[];
   onToggleSelect: (placeId: string) => void;
   onEditPlace?: (place: PlaceRecord) => void;
@@ -50,6 +53,13 @@ export function PlacesMap(props: {
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isEditingPopup, setIsEditingPopup] = useState(false);
+  const [hoveredPoint, setHoveredPoint] = useState<{
+    lat: number;
+    lng: number;
+    ele?: number;
+    slope?: number;
+    trackName: string;
+  } | null>(null);
   const [popupValues, setPopupValues] = useState({
     name: "",
     description: "",
@@ -76,6 +86,61 @@ export function PlacesMap(props: {
     () => props.places.find((place) => place.id === activeId) ?? null,
     [activeId, props.places]
   );
+
+  const handleMouseMove = (e: MapMouseEvent) => {
+    if (!e.detail.latLng || !props.tracks || props.tracks.length === 0) return;
+    
+    const mouseLat = e.detail.latLng.lat;
+    const mouseLng = e.detail.latLng.lng;
+    
+    let closestPointInfo: typeof hoveredPoint = null;
+    let minDistance = 100; // max snap distance in meters
+
+    props.tracks.forEach(track => {
+      for (let i = 0; i < track.points.length; i++) {
+        const pt = track.points[i];
+        if (!pt) continue;
+
+        const dist = calculateDistanceBetween({lat: mouseLat, lng: mouseLng}, pt);
+        
+        if (dist < minDistance) {
+          minDistance = dist;
+          
+          let slope: number | undefined = undefined;
+          
+          // calculate slope to the NEXT point
+          if (i < track.points.length - 1) {
+            const nextPt = track.points[i+1];
+            if (nextPt && pt.ele !== undefined && nextPt.ele !== undefined) {
+              const segDist = calculateDistanceBetween(pt, nextPt);
+              if (segDist > 0) {
+                slope = ((nextPt.ele - pt.ele) / segDist) * 100; // percentage
+              }
+            }
+          } else if (i > 0) {
+             // last point, calculate slope from previous
+            const prevPt = track.points[i-1];
+            if (prevPt && pt.ele !== undefined && prevPt.ele !== undefined) {
+              const segDist = calculateDistanceBetween(prevPt, pt);
+              if (segDist > 0) {
+                slope = ((pt.ele - prevPt.ele) / segDist) * 100;
+              }
+            }
+          }
+          
+          closestPointInfo = {
+            lat: pt.lat,
+            lng: pt.lng,
+            ele: pt.ele,
+            slope,
+            trackName: track.name
+          };
+        }
+      }
+    });
+    
+    setHoveredPoint(closestPointInfo);
+  };
 
   const mainPlace = useMemo(
     () => props.places.find((place) => place.isMain) ?? null,
@@ -119,7 +184,30 @@ export function PlacesMap(props: {
 
   return (
     <APIProvider apiKey={clientEnv.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY} libraries={["geometry"]}>
-      <div className="h-[520px] overflow-hidden rounded-3xl border border-white/10">
+      <div className="relative h-[520px] overflow-hidden rounded-3xl border border-white/10">
+        {hoveredPoint ? (
+          <div className="pointer-events-none absolute right-4 top-4 z-10 w-48 rounded-2xl border border-sky-400/20 bg-slate-950/90 p-4 shadow-xl backdrop-blur">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-sky-400">Road Data</div>
+            <div className="mt-1 truncate text-sm font-medium text-white" title={hoveredPoint.trackName}>
+              {hoveredPoint.trackName}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-[10px] uppercase text-slate-400">Elevation</div>
+                <div className="font-mono text-sm font-medium text-emerald-300">
+                  {hoveredPoint.ele !== undefined ? `${hoveredPoint.ele.toFixed(1)}m` : "N/A"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-slate-400">Slope</div>
+                <div className="font-mono text-sm font-medium text-amber-300">
+                  {hoveredPoint.slope !== undefined ? `${hoveredPoint.slope > 0 ? '+' : ''}${hoveredPoint.slope.toFixed(1)}%` : "N/A"}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <Map
           defaultCenter={defaultCenter}
           defaultZoom={5}
@@ -127,6 +215,8 @@ export function PlacesMap(props: {
           disableDefaultUI={false}
           mapId={clientEnv.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID}
           style={{ width: "100%", height: "100%" }}
+          onMousemove={handleMouseMove}
+          onMouseout={() => setHoveredPoint(null)}
         >
           <FitBounds places={props.places} />
 
@@ -334,6 +424,25 @@ export function PlacesMap(props: {
               strokeWeight={3}
             />
           ))}
+
+          {props.tracks?.map((track) => (
+            <Polyline
+              key={`track-${track.id}`}
+              path={track.points}
+              strokeColor="#fbbf24"
+              strokeOpacity={0.9}
+              strokeWeight={4}
+            />
+          ))}
+
+          {hoveredPoint ? (
+            <Marker
+              position={{ lat: hoveredPoint.lat, lng: hoveredPoint.lng }}
+              icon="https://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
+              zIndex={1000}
+              clickable={false}
+            />
+          ) : null}
         </Map>
       </div>
     </APIProvider>

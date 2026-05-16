@@ -10,7 +10,8 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-  varchar
+  varchar,
+  json
 } from "drizzle-orm/pg-core";
 
 export const placeCategoryEnum = pgEnum("place_category", [
@@ -61,6 +62,21 @@ export const places = pgTable(
   })
 );
 
+export const userTracks = pgTable(
+  "user_track",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    points: json("points").notNull(), // Will store Array<{lat: number, lng: number}>
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date())
+  },
+  (table) => ({
+    userIdIndex: index("user_track_user_id_idx").on(table.userId)
+  })
+);
+
 export const dismissedSamples = pgTable(
   "dismissed_sample",
   {
@@ -95,7 +111,8 @@ export const placeImages = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   places: many(places),
-  placeImages: many(placeImages)
+  placeImages: many(placeImages),
+  userTracks: many(userTracks)
 }));
 
 export const placesRelations = relations(places, ({ one, many }) => ({
@@ -117,9 +134,17 @@ export const placeImagesRelations = relations(placeImages, ({ one }) => ({
   })
 }));
 
+export const userTracksRelations = relations(userTracks, ({ one }) => ({
+  user: one(users, {
+    fields: [userTracks.userId],
+    references: [users.id]
+  })
+}));
+
 export type User = typeof users.$inferSelect;
 export type Place = typeof places.$inferSelect;
 export type PlaceImage = typeof placeImages.$inferSelect;
+export type UserTrack = typeof userTracks.$inferSelect;
 
 export const placesSelectSql = sql`
   ${places.id},

@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import type { Session } from "next-auth";
 
 import { PlaceForm } from "@/components/place-form";
 import { PlacesMap } from "@/components/places-map";
 import { SelectionMetrics } from "@/components/selection-metrics";
 import { SignOutButton } from "@/components/sign-out-button";
-import { formatDistanceLabel } from "@/lib/utils";
+import { formatDistanceLabel, calculatePathDistance } from "@/lib/utils";
 import { trpc } from "@/trpc/react";
+import { parseGpxKml } from "@/lib/gpx-kml-parser";
 
 export type PlaceRecord = {
   id: string;
@@ -34,8 +35,10 @@ export function DashboardShell(props: { session: Session | null }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingPlace, setEditingPlace] = useState<PlaceRecord | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const placesQuery = trpc.place.list.useQuery();
+  const tracksQuery = trpc.track.list.useQuery(undefined, { enabled: isSignedIn });
 
   const deleteMutation = trpc.place.delete.useMutation({
     onSuccess: async () => {
@@ -45,7 +48,49 @@ export function DashboardShell(props: { session: Session | null }) {
     }
   });
 
+  const createTrackMutation = trpc.track.create.useMutation({
+    onSuccess: async () => {
+      setStatusMessage("Track uploaded successfully.");
+      await utils.track.list.invalidate();
+    },
+    onError: (error) => {
+      setStatusMessage(`Failed to upload track: ${error.message}`);
+    }
+  });
+
+  const deleteTrackMutation = trpc.track.delete.useMutation({
+    onSuccess: async () => {
+      setStatusMessage("Track deleted.");
+      await utils.track.list.invalidate();
+    }
+  });
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const content = e.target?.result as string;
+      const points = parseGpxKml(content);
+      if (points.length < 2) {
+        setStatusMessage("No valid track points found in file.");
+        return;
+      }
+
+      createTrackMutation.mutate({
+        name: file.name,
+        points: points
+      });
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const places = useMemo(() => placesQuery.data ?? [], [placesQuery.data]);
+  const tracks = useMemo(() => tracksQuery.data ?? [], [tracksQuery.data]);
 
   useEffect(() => {
     setSelectedIds((current) => {
@@ -140,6 +185,50 @@ export function DashboardShell(props: { session: Session | null }) {
                   Clear selection
                 </button>
               </div>
+
+              {isSignedIn ? (
+                <div className="mb-4">
+                  <input 
+                    type="file" 
+                    accept=".gpx,.kml" 
+                    className="hidden" 
+                    ref={fileInputRef}
+                    onChange={handleFileUpload} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={createTrackMutation.isPending}
+                    className="w-full rounded-xl border border-dashed border-sky-400/50 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-300 transition hover:bg-sky-500/20 disabled:opacity-50"
+                  >
+                    {createTrackMutation.isPending ? "Uploading..." : "Import Road (GPX/KML)"}
+                  </button>
+                </div>
+              ) : null}
+
+              {tracks.length > 0 ? (
+                <div className="mb-6 space-y-3">
+                  <h3 className="text-sm font-medium text-slate-300">My Recorded Roads</h3>
+                  {tracks.map(track => (
+                    <div key={track.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/40 p-3">
+                      <div>
+                        <p className="text-sm text-white">{track.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {track.points.length} points · {formatDistanceLabel(calculatePathDistance(track.points))}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteTrackMutation.mutate({ id: track.id })}
+                        disabled={deleteTrackMutation.isPending}
+                        className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-2 py-1 text-[10px] font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="space-y-3">
                 {places.map((place) => {
@@ -282,6 +371,7 @@ export function DashboardShell(props: { session: Session | null }) {
 
               <PlacesMap
                 places={visiblePlaces}
+                tracks={tracks}
                 selectedIds={selectedIds}
                 onToggleSelect={(placeId) => {
                   setSelectedIds((current) =>
