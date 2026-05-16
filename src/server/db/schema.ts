@@ -53,6 +53,7 @@ export const places = pgTable(
     isMain: boolean("is_main").notNull().default(false),
     latitude: numeric("latitude", { precision: 10, scale: 7 }).notNull(),
     longitude: numeric("longitude", { precision: 10, scale: 7 }).notNull(),
+    linkUrl: text("link_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date())
   },

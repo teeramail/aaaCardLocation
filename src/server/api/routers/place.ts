@@ -25,6 +25,7 @@ type NormalizedPlace = Omit<Place, "latitude" | "longitude"> & {
   longitude: number;
   imageUrl: string | null;
   imageAlt: string | null;
+  linkUrl: string | null;
 };
 
 function normalizePlace(place: PlaceWithImages): NormalizedPlace {
@@ -35,7 +36,8 @@ function normalizePlace(place: PlaceWithImages): NormalizedPlace {
     latitude: Number(latitude),
     longitude: Number(longitude),
     imageUrl: primaryImage?.imageUrl ?? null,
-    imageAlt: primaryImage?.altText ?? null
+    imageAlt: primaryImage?.altText ?? null,
+    linkUrl: rest.linkUrl ?? null
   };
 }
 
@@ -111,6 +113,7 @@ export const placeRouter = createTRPCRouter({
           isMain: input.isMain,
           latitude: input.latitude.toString(),
           longitude: input.longitude.toString(),
+          linkUrl: input.linkUrl ?? null,
           updatedAt: new Date()
         })
         .where(and(eq(places.id, input.id), eq(places.userId, ctx.userId)))
@@ -133,7 +136,8 @@ export const placeRouter = createTRPCRouter({
         category: input.category,
         isMain: input.isMain,
         latitude: input.latitude.toString(),
-        longitude: input.longitude.toString()
+        longitude: input.longitude.toString(),
+        linkUrl: input.linkUrl ?? null
       })
       .returning();
 

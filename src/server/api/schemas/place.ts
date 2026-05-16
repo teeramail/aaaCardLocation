@@ -20,7 +20,8 @@ export const placeInputSchema = z.object({
   category: placeCategorySchema.default("primary_school"),
   isMain: z.boolean().optional().default(false),
   latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180)
+  longitude: z.number().min(-180).max(180),
+  linkUrl: z.string().url().max(2000).optional().nullable()
 });
 
 export const placeSelectionSchema = z.object({

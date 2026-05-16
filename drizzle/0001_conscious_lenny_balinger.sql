@@ -1,0 +1,1 @@
+ALTER TABLE "place" ADD COLUMN "link_url" text;

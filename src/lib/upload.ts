@@ -33,7 +33,11 @@ export async function uploadPlaceImage(params: {
   fileBuffer: Buffer;
 }) {
   const client = getClient();
-  const fileName = params.fileName.replace(/\s+/g, "-").toLowerCase();
+  let fileName = params.fileName.replace(/\s+/g, "-").toLowerCase();
+  // Ensure .webp extension for WebP files
+  if (params.mimeType === "image/webp" && !fileName.endsWith(".webp")) {
+    fileName = fileName.replace(/\.[^.]+$/, ".webp");
+  }
   const keyPrefix = serverEnv.AWS_S3_ROOT_FOLDER ? `${serverEnv.AWS_S3_ROOT_FOLDER}/` : "";
   const key = `${keyPrefix}${params.userId}/${Date.now()}-${fileName}`;
 

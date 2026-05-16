@@ -23,6 +23,7 @@ export type PlaceRecord = {
   isMain: boolean;
   latitude: number;
   longitude: number;
+  linkUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
   imageUrl: string | null;

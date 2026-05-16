@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { PlaceRecord } from "@/components/dashboard-shell";
+import { convertToWebp, blobToBase64 } from "@/lib/image-utils";
 import { trpc } from "@/trpc/react";
 
 const defaultValues = {
@@ -13,7 +14,8 @@ const defaultValues = {
   country: "",
   isMain: false,
   latitude: "",
-  longitude: ""
+  longitude: "",
+  linkUrl: ""
 } as const;
 
 type FormValues = {
@@ -24,24 +26,12 @@ type FormValues = {
   isMain: boolean;
   latitude: string;
   longitude: string;
+  linkUrl: string;
 };
-
-function arrayBufferToBase64(buffer: ArrayBuffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-
-  return btoa(binary);
-}
 
 function createValuesFromPlace(place: PlaceRecord | null): FormValues {
   if (!place) {
-    return {
-      ...defaultValues
-    };
+    return { ...defaultValues };
   }
 
   return {
@@ -51,7 +41,8 @@ function createValuesFromPlace(place: PlaceRecord | null): FormValues {
     country: place.country ?? "",
     isMain: place.isMain,
     latitude: place.latitude.toString(),
-    longitude: place.longitude.toString()
+    longitude: place.longitude.toString(),
+    linkUrl: place.linkUrl ?? ""
   };
 }
 
@@ -61,17 +52,35 @@ export function PlaceForm(props: {
   onSaved: (message: string) => Promise<void>;
 }) {
   const [values, setValues] = useState<FormValues>(() => createValuesFromPlace(props.editingPlace));
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   const utils = trpc.useUtils();
 
   const upsertMutation = trpc.place.upsert.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (createdPlace) => {
       setFormError(null);
-      setValues(createValuesFromPlace(null));
-      setUploadFile(null);
-      await props.onSaved(props.editingPlace ? "Place updated." : "Place created.");
+
+      // If we have an image blob and a placeId, upload it after place is saved
+      if (imageBlob && createdPlace?.id) {
+        const base64 = await blobToBase64(imageBlob);
+        uploadMutation.mutate({
+          placeId: createdPlace.id,
+          fileName: `place-${Date.now()}.webp`,
+          mimeType: "image/webp",
+          fileBase64: base64
+        });
+      } else {
+        setValues(createValuesFromPlace(null));
+        setImagePreview(null);
+        setImageBlob(null);
+        await props.onSaved(props.editingPlace ? "Place updated." : "Place created.");
+      }
     },
     onError: (error) => {
       setFormError(error.message);
@@ -81,35 +90,78 @@ export function PlaceForm(props: {
   const uploadMutation = trpc.placeImage.upload.useMutation({
     onSuccess: async () => {
       setUploadMessage("Image uploaded.");
-      setUploadFile(null);
+      setImagePreview(null);
+      setImageBlob(null);
+      setValues(createValuesFromPlace(null));
       await utils.place.list.invalidate();
+      await props.onSaved(props.editingPlace ? "Place updated with image." : "Place created with image.");
     },
     onError: (error) => {
       setUploadMessage(error.message);
     }
   });
 
+  const processImage = useCallback(async (source: File | Blob) => {
+    setIsConverting(true);
+    setUploadMessage(null);
+    try {
+      const { blob, dataUrl } = await convertToWebp(source);
+      setImageBlob(blob);
+      setImagePreview(dataUrl);
+      setUploadMessage(`Image ready: ${(blob.size / 1024).toFixed(1)} KB (WebP)`);
+    } catch {
+      setUploadMessage("Failed to process the image.");
+    } finally {
+      setIsConverting(false);
+    }
+  }, []);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      void processImage(file);
+    }
+  };
+
+  const handlePaste = useCallback(
+    (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          event.preventDefault();
+          const blob = item.getAsFile();
+          if (blob) {
+            void processImage(blob);
+          }
+          return;
+        }
+      }
+    },
+    [processImage]
+  );
+
+  useEffect(() => {
+    const el = formRef.current;
+    if (!el) return;
+    el.addEventListener("paste", handlePaste);
+    return () => el.removeEventListener("paste", handlePaste);
+  }, [handlePaste]);
+
   const handleCoordinatePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
     const text = event.clipboardData.getData("text").trim();
-    if (!text.includes(",")) {
-      return;
-    }
+    if (!text.includes(",")) return;
 
     const parts = text.split(",").map((part) => part.trim());
-    if (parts.length !== 2) {
-      return;
-    }
+    if (parts.length !== 2) return;
 
     const [latPart, lngPart] = parts;
-    if (!latPart || !lngPart) {
-      return;
-    }
+    if (!latPart || !lngPart) return;
 
     const lat = Number(latPart);
     const lng = Number(lngPart);
-    if (Number.isNaN(lat) || Number.isNaN(lng)) {
-      return;
-    }
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
 
     event.preventDefault();
     setValues((current) => ({
@@ -121,20 +173,23 @@ export function PlaceForm(props: {
 
   useEffect(() => {
     setValues(createValuesFromPlace(props.editingPlace));
-    setUploadFile(null);
+    setImagePreview(null);
+    setImageBlob(null);
     setFormError(null);
     setUploadMessage(null);
   }, [props.editingPlace]);
 
+  const isBusy = upsertMutation.isPending || uploadMutation.isPending || isConverting;
+
   return (
-    <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
+    <div ref={formRef} className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-white">
             {props.editingPlace ? "Edit place" : "Add a new place"}
           </h2>
           <p className="text-sm text-slate-400">
-            Save the school or place coordinates, then optionally attach one image.
+            Save the school or place coordinates. You can attach an image and a link.
           </p>
         </div>
         {props.editingPlace ? (
@@ -168,7 +223,8 @@ export function PlaceForm(props: {
             country: values.country || null,
             isMain: values.isMain,
             latitude,
-            longitude
+            longitude,
+            linkUrl: values.linkUrl || null
           });
         }}
       >
@@ -254,34 +310,28 @@ export function PlaceForm(props: {
           Tip: paste &ldquo;lat, lng&rdquo; from Google Maps (e.g. 13.668639, 100.651863) into either field to fill both automatically.
         </p>
 
-        {formError ? (
-          <p className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-            {formError}
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-slate-200">Link URL</span>
+          <input
+            type="url"
+            value={values.linkUrl}
+            onChange={(event) => setValues((current) => ({ ...current, linkUrl: event.target.value }))}
+            placeholder="https://example.com"
+            className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400"
+          />
+          <p className="text-xs text-slate-400">Optional link to associate with this place.</p>
+        </label>
+
+        {/* Image section */}
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-slate-900/40 p-4">
+          <span className="text-sm font-medium text-slate-200">Place image</span>
+          <p className="text-xs text-slate-400">
+            Upload, paste from clipboard, or take a photo. Auto-converted to WebP (&lt; 100 KB).
           </p>
-        ) : null}
 
-        <button
-          type="submit"
-          disabled={upsertMutation.isPending}
-          className="w-full rounded-2xl bg-sky-500 px-4 py-3 font-medium text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {upsertMutation.isPending
-            ? props.editingPlace
-              ? "Saving changes..."
-              : "Creating place..."
-            : props.editingPlace
-              ? "Save changes"
-              : "Create place"}
-        </button>
-      </form>
-
-      {props.editingPlace ? (
-        <div className="mt-6 border-t border-white/10 pt-6">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">Place image</h3>
-          <p className="mt-2 text-sm text-slate-400">Upload one image to show in the place card and details.</p>
-
-          {props.editingPlace.imageUrl ? (
-            <div className="relative mt-4 h-48 overflow-hidden rounded-2xl border border-white/10">
+          {/* Existing image preview */}
+          {props.editingPlace?.imageUrl && !imagePreview ? (
+            <div className="relative h-40 overflow-hidden rounded-2xl border border-white/10">
               <Image
                 src={props.editingPlace.imageUrl}
                 alt={props.editingPlace.imageAlt ?? props.editingPlace.name}
@@ -292,48 +342,100 @@ export function PlaceForm(props: {
             </div>
           ) : null}
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          {/* New image preview */}
+          {imagePreview ? (
+            <div className="relative h-40 overflow-hidden rounded-2xl border border-sky-400/30">
+              <Image
+                src={imagePreview}
+                alt="Preview"
+                fill
+                className="object-cover"
+                unoptimized
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setImagePreview(null);
+                  setImageBlob(null);
+                  setUploadMessage(null);
+                }}
+                className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs text-white hover:bg-black/80"
+              >
+                Remove
+              </button>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap gap-2">
+            {/* File upload button */}
             <input
+              ref={fileInputRef}
               type="file"
               accept="image/*"
-              onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
-              className="block w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200"
+              onChange={handleFileChange}
+              className="hidden"
             />
             <button
               type="button"
-              disabled={!uploadFile || uploadMutation.isPending}
-              onClick={() => {
-                if (!uploadFile || !props.editingPlace) {
-                  return;
-                }
-
-                uploadFile
-                  .arrayBuffer()
-                  .then((buffer) => {
-                    uploadMutation.mutate({
-                      placeId: props.editingPlace!.id,
-                      fileName: uploadFile.name,
-                      mimeType: uploadFile.type,
-                      fileBase64: arrayBufferToBase64(buffer)
-                    });
-                  })
-                  .catch(() => {
-                    setUploadMessage("Unable to read the selected file.");
-                  });
-              }}
-              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isConverting}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/10 disabled:opacity-50"
             >
-              {uploadMutation.isPending ? "Uploading..." : "Upload image"}
+              Choose file
             </button>
+
+            {/* Camera capture button */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isConverting}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/10 disabled:opacity-50"
+            >
+              Take photo
+            </button>
+
+            <span className="self-center text-xs text-slate-500">or paste an image (Ctrl+V)</span>
           </div>
 
-          {uploadMessage ? (
-            <p className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
-              {uploadMessage}
-            </p>
+          {isConverting ? (
+            <p className="text-xs text-sky-300">Converting to WebP...</p>
           ) : null}
         </div>
-      ) : null}
+
+        {formError ? (
+          <p className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {formError}
+          </p>
+        ) : null}
+
+        {uploadMessage ? (
+          <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+            {uploadMessage}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={isBusy}
+          className="w-full rounded-2xl bg-sky-500 px-4 py-3 font-medium text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isBusy
+            ? props.editingPlace
+              ? "Saving..."
+              : "Creating..."
+            : props.editingPlace
+              ? "Save changes"
+              : "Create place"}
+        </button>
+      </form>
     </div>
   );
 }

@@ -356,11 +356,32 @@ export function PlacesMap(props: {
                   </form>
                 ) : (
                   <>
+                    {activePlace.imageUrl ? (
+                      <div style={{ marginBottom: 8, borderRadius: 8, overflow: "hidden" }}>
+                        <img
+                          src={activePlace.imageUrl}
+                          alt={activePlace.imageAlt ?? activePlace.name}
+                          style={{ width: "100%", maxHeight: 140, objectFit: "cover", display: "block" }}
+                        />
+                      </div>
+                    ) : null}
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{activePlace.name}</div>
                     {activePlace.city || activePlace.country ? (
                       <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
                         {[activePlace.city, activePlace.country].filter(Boolean).join(", ")}
                       </div>
+                    ) : null}
+                    {activePlace.linkUrl ? (
+                      <a
+                        href={activePlace.linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 12, color: "#0ea5e9", marginTop: 4, display: "inline-block", wordBreak: "break-all" }}
+                      >
+                        {activePlace.linkUrl.length > 40
+                          ? `${activePlace.linkUrl.slice(0, 40)}...`
+                          : activePlace.linkUrl}
+                      </a>
                     ) : null}
                 <div
                   style={{
