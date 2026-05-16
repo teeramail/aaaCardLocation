@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -13,7 +14,9 @@ export default async function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
-      <LoginForm enableGoogle={isGoogleAuthEnabled} />
+      <Suspense>
+        <LoginForm enableGoogle={isGoogleAuthEnabled} />
+      </Suspense>
     </main>
   );
 }

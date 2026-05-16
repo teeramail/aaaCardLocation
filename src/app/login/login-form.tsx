@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
 import { signInWithCredentials } from "@/app/login/actions";
@@ -9,6 +10,10 @@ const initialState = undefined as string | undefined;
 
 export function LoginForm(props: { enableGoogle: boolean }) {
   const [errorMessage, formAction, isPending] = useActionState(signInWithCredentials, initialState);
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get("error");
+
+  const accessDenied = urlError === "AccessDenied";
 
   return (
     <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950/70 p-8 shadow-2xl shadow-sky-950/40 backdrop-blur">
@@ -19,6 +24,12 @@ export function LoginForm(props: { enableGoogle: boolean }) {
           Sign in to manage schools and places across Bangkok, Chiang Mai, Taipei, and anywhere else.
         </p>
       </div>
+
+      {accessDenied ? (
+        <p className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          Access denied. Your account is not authorized to use this app.
+        </p>
+      ) : null}
 
       <form action={formAction} className="space-y-4">
         <label className="block space-y-2">

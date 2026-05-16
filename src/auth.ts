@@ -4,7 +4,7 @@ import Google from "next-auth/providers/google";
 import { z } from "zod";
 
 import { authConfig } from "@/auth.config";
-import { isGoogleAuthEnabled, serverEnv } from "@/env-server";
+import { isEmailAllowed, isGoogleAuthEnabled, serverEnv } from "@/env-server";
 import { ensureUser } from "@/server/auth/sync-user";
 
 const credentialsSchema = z.object({
@@ -29,6 +29,10 @@ const providers: NextAuthConfig["providers"] = [
         parsed.data.email !== serverEnv.VALID_EMAIL ||
         parsed.data.password !== serverEnv.VALID_PASSWORD
       ) {
+        return null;
+      }
+
+      if (!isEmailAllowed(parsed.data.email)) {
         return null;
       }
 
@@ -64,6 +68,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig.callbacks,
     async signIn({ user }) {
       if (!user.email) {
+        return false;
+      }
+
+      if (!isEmailAllowed(user.email)) {
         return false;
       }
 
