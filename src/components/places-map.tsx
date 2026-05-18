@@ -242,7 +242,7 @@ export function PlacesMap(props: {
               onCloseClick={() => setActiveId(null)}
               pixelOffset={[0, -34]}
             >
-              <div style={{ minWidth: isEditingPopup ? 280 : 180, color: "#0f172a" }}>
+              <div style={{ minWidth: isEditingPopup ? 280 : 220, maxWidth: 280, color: "#0f172a" }}>
                 {isEditingPopup ? (
                   <form
                     style={{ display: "grid", gap: 8 }}
@@ -366,18 +366,57 @@ export function PlacesMap(props: {
                         />
                       </div>
                     ) : null}
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{activePlace.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{activePlace.name}</div>
+                      {activePlace.isMain ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "#065f46",
+                            background: "#a7f3d0",
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.5
+                          }}
+                        >
+                          Main
+                        </span>
+                      ) : null}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2, textTransform: "capitalize" }}>
+                      {activePlace.category.replace(/_/g, " ")}
+                    </div>
                     {activePlace.city || activePlace.country ? (
                       <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
                         {[activePlace.city, activePlace.country].filter(Boolean).join(", ")}
                       </div>
                     ) : null}
+                    {activePlace.description ? (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#334155",
+                          marginTop: 6,
+                          whiteSpace: "pre-wrap",
+                          lineHeight: 1.4,
+                          maxHeight: 120,
+                          overflowY: "auto"
+                        }}
+                      >
+                        {activePlace.description}
+                      </div>
+                    ) : null}
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+                      {activePlace.latitude.toFixed(5)}, {activePlace.longitude.toFixed(5)}
+                    </div>
                     {activePlace.linkUrl ? (
                       <a
                         href={activePlace.linkUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ fontSize: 12, color: "#0ea5e9", marginTop: 4, display: "inline-block", wordBreak: "break-all" }}
+                        style={{ fontSize: 12, color: "#0ea5e9", marginTop: 6, display: "inline-block", wordBreak: "break-all" }}
                       >
                         {activePlace.linkUrl.length > 40
                           ? `${activePlace.linkUrl.slice(0, 40)}...`
