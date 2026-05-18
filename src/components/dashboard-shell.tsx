@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useRef } from "react";
 import type { Session } from "next-auth";
 
+import { PlaceDetailModal } from "@/components/place-detail-modal";
 import { PlaceForm } from "@/components/place-form";
 import { PlacesMap } from "@/components/places-map";
 import { SelectionMetrics } from "@/components/selection-metrics";
@@ -35,6 +36,7 @@ export function DashboardShell(props: { session: Session | null }) {
   const utils = trpc.useUtils();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingPlace, setEditingPlace] = useState<PlaceRecord | null>(null);
+  const [modalPlace, setModalPlace] = useState<{ place: PlaceRecord; mode: "view" | "edit" } | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -285,6 +287,13 @@ export function DashboardShell(props: { session: Session | null }) {
                             <div className="mt-3 flex flex-wrap gap-2">
                               <button
                                 type="button"
+                                onClick={() => setModalPlace({ place, mode: "view" })}
+                                className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
+                              >
+                                ⛶ Expand
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => setEditingPlace(isEditing ? null : place)}
                                 className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
                               >
@@ -431,6 +440,17 @@ export function DashboardShell(props: { session: Session | null }) {
             </div>
         </div>
       </div>
+
+      <PlaceDetailModal
+        place={modalPlace?.place ?? null}
+        open={modalPlace !== null}
+        initialMode={modalPlace?.mode ?? "view"}
+        onClose={() => setModalPlace(null)}
+        onSaved={async (message) => {
+          setStatusMessage(message);
+          await utils.place.list.invalidate();
+        }}
+      />
     </main>
   );
 }

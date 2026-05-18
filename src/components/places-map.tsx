@@ -13,6 +13,7 @@ import type { MapMouseEvent } from "@vis.gl/react-google-maps";
 
 import { clientEnv } from "@/env-client";
 import type { PlaceRecord } from "@/components/dashboard-shell";
+import { PlaceDetailModal } from "@/components/place-detail-modal";
 import { trpc } from "@/trpc/react";
 import { calculateDistanceBetween } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ export function PlacesMap(props: {
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isEditingPopup, setIsEditingPopup] = useState(false);
+  const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null);
   const [hoveredPoint, setHoveredPoint] = useState<{
     lat: number;
     lng: number;
@@ -449,12 +451,27 @@ export function PlacesMap(props: {
                   >
                     {props.selectedIds.includes(activePlace.id) ? "Deselect" : "Select"}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalMode("view")}
+                    title="Full screen view"
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #0ea5e9",
+                      background: "#fff",
+                      color: "#0ea5e9",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer"
+                    }}
+                  >
+                    ⛶ Expand
+                  </button>
                   {props.onEditPlace ? (
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsEditingPopup(true);
-                      }}
+                      onClick={() => setModalMode("edit")}
                       style={{
                         padding: "6px 10px",
                         borderRadius: 8,
@@ -506,6 +523,16 @@ export function PlacesMap(props: {
           ) : null}
         </Map>
       </div>
+
+      <PlaceDetailModal
+        place={activePlace}
+        open={modalMode !== null}
+        initialMode={modalMode ?? "view"}
+        onClose={() => setModalMode(null)}
+        onSaved={async () => {
+          await props.onPlaceSaved?.();
+        }}
+      />
     </APIProvider>
   );
 }
