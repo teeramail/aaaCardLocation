@@ -22,7 +22,7 @@ export const placeInputSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   linkUrl: z.string().url().max(2000).optional().nullable(),
-  dueDate: z.string().datetime({ offset: true }).optional().nullable(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   budget: z.number().nonnegative().optional().nullable()
 });
 

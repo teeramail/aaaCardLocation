@@ -47,7 +47,7 @@ function createValuesFromPlace(place: PlaceRecord | null): FormValues {
     latitude: place.latitude.toString(),
     longitude: place.longitude.toString(),
     linkUrl: place.linkUrl ?? "",
-    dueDate: place.dueDate ? new Date(place.dueDate).toISOString().slice(0, 16) : "",
+    dueDate: place.dueDate ? new Date(place.dueDate).toISOString().slice(0, 10) : "",
     budget: place.budget !== null && place.budget !== undefined ? place.budget.toString() : ""
   };
 }
@@ -237,7 +237,7 @@ export function PlaceForm(props: {
             latitude,
             longitude,
             linkUrl: values.linkUrl || null,
-            dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
+            dueDate: values.dueDate || null,
             budget: budget
           });
         }}
@@ -328,10 +328,10 @@ export function PlaceForm(props: {
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-200">Due date <span className="text-xs font-normal text-slate-500">(optional)</span></span>
             <input
-              type="datetime-local"
+              type="date"
               value={values.dueDate}
               onChange={(event) => setValues((current) => ({ ...current, dueDate: event.target.value }))}
-              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400 [color-scheme:dark]"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400 [color-scheme:dark] cursor-pointer"
             />
           </label>
 

@@ -116,7 +116,7 @@ export const placeRouter = createTRPCRouter({
             latitude: input.latitude.toString(),
             longitude: input.longitude.toString(),
             linkUrl: input.linkUrl ?? null,
-            dueDate: input.dueDate ? new Date(input.dueDate) : null,
+            dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00Z`) : null,
             budget: input.budget !== undefined && input.budget !== null ? input.budget.toString() : null,
             updatedAt: new Date()
           })
@@ -142,7 +142,7 @@ export const placeRouter = createTRPCRouter({
           latitude: input.latitude.toString(),
           longitude: input.longitude.toString(),
           linkUrl: input.linkUrl ?? null,
-          dueDate: input.dueDate ? new Date(input.dueDate) : null,
+          dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00Z`) : null,
           budget: input.budget !== undefined && input.budget !== null ? input.budget.toString() : null
         })
         .returning();

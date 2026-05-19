@@ -146,7 +146,7 @@ function ViewMode({ place }: { place: PlaceRecord }) {
 
         {place.dueDate ? (
           <Field label="Due date">
-            <span>{new Date(place.dueDate).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
+            <span>{new Date(place.dueDate).toLocaleDateString(undefined, { dateStyle: "medium" })}</span>
           </Field>
         ) : null}
 
