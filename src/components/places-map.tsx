@@ -55,6 +55,7 @@ export function PlacesMap(props: {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isEditingPopup, setIsEditingPopup] = useState(false);
   const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
   const [hoveredPoint, setHoveredPoint] = useState<{
     lat: number;
     lng: number;
@@ -226,7 +227,7 @@ export function PlacesMap(props: {
             <Marker
               key={place.id}
               position={{ lat: place.latitude, lng: place.longitude }}
-              onClick={() => setActiveId(place.id)}
+              onClick={() => { setActiveId(place.id); setShareCopied(false); }}
               title={place.isMain ? `${place.name} (Main)` : place.name}
               icon={
                 place.isMain
@@ -450,6 +451,41 @@ export function PlacesMap(props: {
                     }}
                   >
                     {props.selectedIds.includes(activePlace.id) ? "Deselect" : "Select"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const mapsUrl = `https://www.google.com/maps?q=${activePlace.latitude},${activePlace.longitude}`;
+                      if (typeof navigator.share === "function") {
+                        try {
+                          await navigator.share({
+                            title: activePlace.name,
+                            text: [activePlace.name, activePlace.city, activePlace.country].filter(Boolean).join(", "),
+                            url: mapsUrl
+                          });
+                        } catch {
+                          // user cancelled share — no-op
+                        }
+                      } else {
+                        await navigator.clipboard.writeText(mapsUrl);
+                        setShareCopied(true);
+                        setTimeout(() => setShareCopied(false), 2000);
+                      }
+                    }}
+                    title="Share location"
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #64748b",
+                      background: shareCopied ? "#f0fdf4" : "#fff",
+                      color: shareCopied ? "#15803d" : "#475569",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    {shareCopied ? "✓ Copied!" : "↗ Share"}
                   </button>
                   <button
                     type="button"
