@@ -144,6 +144,18 @@ function ViewMode({ place }: { place: PlaceRecord }) {
           </span>
         </Field>
 
+        {place.dueDate ? (
+          <Field label="Due date">
+            <span>{new Date(place.dueDate).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
+          </Field>
+        ) : null}
+
+        {place.budget !== null && place.budget !== undefined ? (
+          <Field label="Budget">
+            <span>{place.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </Field>
+        ) : null}
+
         {place.linkUrl ? (
           <Field label="Link">
             <a

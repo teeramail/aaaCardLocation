@@ -15,7 +15,9 @@ const defaultValues = {
   isMain: false,
   latitude: "",
   longitude: "",
-  linkUrl: ""
+  linkUrl: "",
+  dueDate: "",
+  budget: ""
 } as const;
 
 type FormValues = {
@@ -27,6 +29,8 @@ type FormValues = {
   latitude: string;
   longitude: string;
   linkUrl: string;
+  dueDate: string;
+  budget: string;
 };
 
 function createValuesFromPlace(place: PlaceRecord | null): FormValues {
@@ -42,7 +46,9 @@ function createValuesFromPlace(place: PlaceRecord | null): FormValues {
     isMain: place.isMain,
     latitude: place.latitude.toString(),
     longitude: place.longitude.toString(),
-    linkUrl: place.linkUrl ?? ""
+    linkUrl: place.linkUrl ?? "",
+    dueDate: place.dueDate ? new Date(place.dueDate).toISOString().slice(0, 16) : "",
+    budget: place.budget !== null && place.budget !== undefined ? place.budget.toString() : ""
   };
 }
 
@@ -215,6 +221,12 @@ export function PlaceForm(props: {
             return;
           }
 
+          const budget = values.budget ? Number(values.budget) : null;
+          if (values.budget && Number.isNaN(budget)) {
+            setFormError("Budget must be a valid number.");
+            return;
+          }
+
           upsertMutation.mutate({
             id: props.editingPlace?.id,
             name: values.name,
@@ -224,7 +236,9 @@ export function PlaceForm(props: {
             isMain: values.isMain,
             latitude,
             longitude,
-            linkUrl: values.linkUrl || null
+            linkUrl: values.linkUrl || null,
+            dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
+            budget: budget
           });
         }}
       >
@@ -309,6 +323,31 @@ export function PlaceForm(props: {
         <p className="text-xs text-slate-400">
           Tip: paste &ldquo;lat, lng&rdquo; from Google Maps (e.g. 13.668639, 100.651863) into either field to fill both automatically.
         </p>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-200">Due date <span className="text-xs font-normal text-slate-500">(optional)</span></span>
+            <input
+              type="datetime-local"
+              value={values.dueDate}
+              onChange={(event) => setValues((current) => ({ ...current, dueDate: event.target.value }))}
+              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400 [color-scheme:dark]"
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-200">Budget <span className="text-xs font-normal text-slate-500">(optional)</span></span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={values.budget}
+              onChange={(event) => setValues((current) => ({ ...current, budget: event.target.value }))}
+              placeholder="0.00"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400"
+            />
+          </label>
+        </div>
 
         <label className="space-y-2">
           <span className="text-sm font-medium text-slate-200">Link URL</span>

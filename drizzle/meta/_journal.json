@@ -15,6 +15,13 @@
       "when": 1778974665321,
       "tag": "0001_conscious_lenny_balinger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779181499752,
+      "tag": "0002_heavy_gladiator",
+      "breakpoints": true
     }
   ]
 }

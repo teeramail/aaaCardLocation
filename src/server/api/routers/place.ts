@@ -19,16 +19,17 @@ type PlaceWithImages = Place & {
   images: PlaceImage[];
 };
 
-type NormalizedPlace = Omit<Place, "latitude" | "longitude"> & {
+type NormalizedPlace = Omit<Place, "latitude" | "longitude" | "budget"> & {
   latitude: number;
   longitude: number;
   imageUrl: string | null;
   imageAlt: string | null;
   linkUrl: string | null;
+  budget: number | null;
 };
 
 function normalizePlace(place: PlaceWithImages): NormalizedPlace {
-  const { images, latitude, longitude, ...rest } = place;
+  const { images, latitude, longitude, budget, ...rest } = place;
   const primaryImage = images[0];
   return {
     ...rest,
@@ -36,7 +37,8 @@ function normalizePlace(place: PlaceWithImages): NormalizedPlace {
     longitude: Number(longitude),
     imageUrl: primaryImage?.imageUrl ?? null,
     imageAlt: primaryImage?.altText ?? null,
-    linkUrl: rest.linkUrl ?? null
+    linkUrl: rest.linkUrl ?? null,
+    budget: budget !== null && budget !== undefined ? Number(budget) : null
   };
 }
 
@@ -114,6 +116,8 @@ export const placeRouter = createTRPCRouter({
             latitude: input.latitude.toString(),
             longitude: input.longitude.toString(),
             linkUrl: input.linkUrl ?? null,
+            dueDate: input.dueDate ? new Date(input.dueDate) : null,
+            budget: input.budget !== undefined && input.budget !== null ? input.budget.toString() : null,
             updatedAt: new Date()
           })
           .where(and(eq(places.id, input.id), eq(places.userId, ctx.userId)))
@@ -137,7 +141,9 @@ export const placeRouter = createTRPCRouter({
           isMain: input.isMain,
           latitude: input.latitude.toString(),
           longitude: input.longitude.toString(),
-          linkUrl: input.linkUrl ?? null
+          linkUrl: input.linkUrl ?? null,
+          dueDate: input.dueDate ? new Date(input.dueDate) : null,
+          budget: input.budget !== undefined && input.budget !== null ? input.budget.toString() : null
         })
         .returning();
 

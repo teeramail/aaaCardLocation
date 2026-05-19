@@ -21,7 +21,9 @@ export const placeInputSchema = z.object({
   isMain: z.boolean().optional().default(false),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
-  linkUrl: z.string().url().max(2000).optional().nullable()
+  linkUrl: z.string().url().max(2000).optional().nullable(),
+  dueDate: z.string().datetime({ offset: true }).optional().nullable(),
+  budget: z.number().nonnegative().optional().nullable()
 });
 
 export const placeSelectionSchema = z.object({

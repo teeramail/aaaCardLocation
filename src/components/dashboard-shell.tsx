@@ -25,6 +25,8 @@ export type PlaceRecord = {
   latitude: number;
   longitude: number;
   linkUrl: string | null;
+  dueDate: Date | null;
+  budget: number | null;
   createdAt: Date;
   updatedAt: Date;
   imageUrl: string | null;
