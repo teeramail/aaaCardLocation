@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { PlaceRecord } from "@/components/dashboard-shell";
 import { convertToWebp, blobToBase64 } from "@/lib/image-utils";
+import { placeCategoryValues } from "@/server/api/schemas/place";
 import { trpc } from "@/trpc/react";
 
 const defaultValues = {
@@ -12,6 +13,7 @@ const defaultValues = {
   description: "",
   city: "",
   country: "",
+  category: "primary_school",
   isMain: false,
   latitude: "",
   longitude: "",
@@ -25,6 +27,7 @@ type FormValues = {
   description: string;
   city: string;
   country: string;
+  category: (typeof placeCategoryValues)[number];
   isMain: boolean;
   latitude: string;
   longitude: string;
@@ -43,6 +46,7 @@ function createValuesFromPlace(place: PlaceRecord | null): FormValues {
     description: place.description ?? "",
     city: place.city ?? "",
     country: place.country ?? "",
+    category: place.category,
     isMain: place.isMain,
     latitude: place.latitude.toString(),
     longitude: place.longitude.toString(),
@@ -244,6 +248,7 @@ export function PlaceForm(props: {
             description: values.description || null,
             city: values.city || null,
             country: values.country || null,
+            category: values.category,
             isMain: values.isMain,
             latitude,
             longitude,
@@ -278,6 +283,27 @@ export function PlaceForm(props: {
               Marker turns green and distances are measured from here. Only one main place is allowed.
             </span>
           </span>
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-slate-200">Category</span>
+          <select
+            value={values.category}
+            onChange={(event) =>
+              setValues((current) => ({
+                ...current,
+                category: event.target.value as FormValues["category"]
+              }))
+            }
+            className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400"
+          >
+            {placeCategoryValues.map((category) => (
+              <option key={category} value={category}>
+                {category.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-400">Choose the place type shown in the marker and details panel.</p>
         </label>
 
         <label className="space-y-2">
