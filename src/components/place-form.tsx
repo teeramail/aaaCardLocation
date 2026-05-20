@@ -461,19 +461,21 @@ export function PlaceForm(props: {
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={isBusy}
-          className="w-full rounded-2xl bg-sky-500 px-4 py-3 font-medium text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isBusy
-            ? props.editingPlace
-              ? "Saving..."
-              : "Creating..."
-            : props.editingPlace
-              ? "Save changes"
-              : "Create place"}
-        </button>
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-2 border-t border-white/10 bg-slate-950/95 px-5 py-4 backdrop-blur sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+          <button
+            type="submit"
+            disabled={isBusy}
+            className="w-full rounded-2xl bg-sky-500 px-4 py-3 font-medium text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isBusy
+              ? props.editingPlace
+                ? "Saving..."
+                : "Creating..."
+              : props.editingPlace
+                ? "Save changes"
+                : "Create place"}
+          </button>
+        </div>
       </form>
     </div>
   );

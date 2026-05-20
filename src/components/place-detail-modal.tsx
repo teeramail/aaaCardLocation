@@ -53,7 +53,7 @@ export function PlaceDetailModal(props: {
         if (e.target === e.currentTarget) props.onClose();
       }}
     >
-      <div className="relative flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-none border border-white/10 bg-slate-950 text-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-3xl">
+      <div className="relative flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-none border border-white/10 bg-slate-950 text-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-3xl">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-slate-900/80 px-5 py-3">
           <div className="flex min-w-0 items-center gap-2">
@@ -86,11 +86,11 @@ export function PlaceDetailModal(props: {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {mode === "view" ? (
             <ViewMode place={place} />
           ) : (
-            <div className="p-5">
+            <div className="p-5 pb-24 sm:pb-5">
               <PlaceForm
                 editingPlace={place}
                 onCancelEdit={() => setMode("view")}
