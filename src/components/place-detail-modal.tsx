@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import type { PlaceRecord } from "@/components/dashboard-shell";
 import { PlaceForm } from "@/components/place-form";
+import { formatAmount } from "@/lib/utils";
 
 const FORM_ID = "place-detail-edit-form";
 
@@ -182,7 +183,7 @@ function ViewMode({ place }: { place: PlaceRecord }) {
 
         {place.budget !== null && place.budget !== undefined ? (
           <Field label="Budget">
-            <span>{place.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span>{formatAmount(place.budget)}</span>
           </Field>
         ) : null}
 

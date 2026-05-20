@@ -10,6 +10,13 @@ export function formatDistanceLabel(distanceInMeters: number) {
   return `${distanceInMeters.toFixed(0)} m`;
 }
 
+export function formatAmount(amount: number) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(amount);
+}
+
 export function calculateDistanceBetween(p1: {lat: number, lng: number}, p2: {lat: number, lng: number}): number {
   const R = 6371e3; // Earth radius in meters
   const lat1 = (p1.lat * Math.PI) / 180;
