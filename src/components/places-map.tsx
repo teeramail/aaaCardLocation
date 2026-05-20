@@ -218,6 +218,7 @@ export function PlacesMap(props: {
           disableDefaultUI={false}
           mapId={clientEnv.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID}
           style={{ width: "100%", height: "100%" }}
+          onClick={() => setActiveId(null)}
           onMousemove={handleMouseMove}
           onMouseout={() => setHoveredPoint(null)}
         >

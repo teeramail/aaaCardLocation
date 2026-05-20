@@ -78,6 +78,26 @@ export function PlaceDetailModal(props: {
                 Edit
               </button>
             ) : null}
+            {mode === "edit" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setMode("view")}
+                  disabled={isFormBusy}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  form={FORM_ID}
+                  disabled={isFormBusy}
+                  className="rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-medium text-slate-950 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isFormBusy ? "Saving..." : "Save"}
+                </button>
+              </>
+            ) : null}
             <button
               type="button"
               onClick={props.onClose}
@@ -110,29 +130,6 @@ export function PlaceDetailModal(props: {
           )}
         </div>
 
-        {/* Sticky footer — only shown in edit mode */}
-        {mode === "edit" ? (
-          <div className="shrink-0 border-t border-white/10 bg-slate-900/90 px-5 py-4 backdrop-blur">
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setMode("view")}
-                disabled={isFormBusy}
-                className="flex-1 rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/5 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form={FORM_ID}
-                disabled={isFormBusy}
-                className="flex-[2] rounded-2xl bg-sky-500 px-4 py-3 text-sm font-medium text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isFormBusy ? "Saving..." : "Save changes"}
-              </button>
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   );
