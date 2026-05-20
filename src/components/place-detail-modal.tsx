@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import type { PlaceRecord } from "@/components/dashboard-shell";
 import { PlaceForm } from "@/components/place-form";
 
+const FORM_ID = "place-detail-edit-form";
+
 export function PlaceDetailModal(props: {
   place: PlaceRecord | null;
   open: boolean;
@@ -14,6 +16,7 @@ export function PlaceDetailModal(props: {
   onSaved?: (message: string) => Promise<void>;
 }) {
   const [mode, setMode] = useState<"view" | "edit">(props.initialMode ?? "view");
+  const [isFormBusy, setIsFormBusy] = useState(false);
 
   useEffect(() => {
     if (props.open) {
@@ -90,7 +93,7 @@ export function PlaceDetailModal(props: {
           {mode === "view" ? (
             <ViewMode place={place} />
           ) : (
-            <div className="p-5 pb-24 sm:pb-5">
+            <div className="p-5">
               <PlaceForm
                 editingPlace={place}
                 onCancelEdit={() => setMode("view")}
@@ -98,10 +101,37 @@ export function PlaceDetailModal(props: {
                   await props.onSaved?.(message);
                   props.onClose();
                 }}
+                formId={FORM_ID}
+                hideSubmit
+                onBusyChange={setIsFormBusy}
               />
             </div>
           )}
         </div>
+
+        {/* Sticky footer — only shown in edit mode */}
+        {mode === "edit" ? (
+          <div className="shrink-0 border-t border-white/10 bg-slate-900/90 px-5 py-4 backdrop-blur">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setMode("view")}
+                disabled={isFormBusy}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/5 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form={FORM_ID}
+                disabled={isFormBusy}
+                className="flex-[2] rounded-2xl bg-sky-500 px-4 py-3 text-sm font-medium text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isFormBusy ? "Saving..." : "Save changes"}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -56,6 +56,9 @@ export function PlaceForm(props: {
   editingPlace: PlaceRecord | null;
   onCancelEdit: () => void;
   onSaved: (message: string) => Promise<void>;
+  formId?: string;
+  hideSubmit?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const [values, setValues] = useState<FormValues>(() => createValuesFromPlace(props.editingPlace));
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -187,29 +190,37 @@ export function PlaceForm(props: {
 
   const isBusy = upsertMutation.isPending || uploadMutation.isPending || isConverting;
 
+  const { onBusyChange } = props;
+  useEffect(() => {
+    onBusyChange?.(isBusy);
+  }, [isBusy, onBusyChange]);
+
   return (
     <div ref={formRef} className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-white">
-            {props.editingPlace ? "Edit place" : "Add a new place"}
-          </h2>
-          <p className="text-sm text-slate-400">
-            Save the school or place coordinates. You can attach an image and a link.
-          </p>
+      {!props.hideSubmit ? (
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">
+              {props.editingPlace ? "Edit place" : "Add a new place"}
+            </h2>
+            <p className="text-sm text-slate-400">
+              Save the school or place coordinates. You can attach an image and a link.
+            </p>
+          </div>
+          {props.editingPlace ? (
+            <button
+              type="button"
+              onClick={props.onCancelEdit}
+              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/5"
+            >
+              Cancel edit
+            </button>
+          ) : null}
         </div>
-        {props.editingPlace ? (
-          <button
-            type="button"
-            onClick={props.onCancelEdit}
-            className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/5"
-          >
-            Cancel edit
-          </button>
-        ) : null}
-      </div>
+      ) : null}
 
       <form
+        id={props.formId}
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
@@ -461,7 +472,7 @@ export function PlaceForm(props: {
           </p>
         ) : null}
 
-        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-2 border-t border-white/10 bg-slate-950/95 px-5 py-4 backdrop-blur sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+        {!props.hideSubmit ? (
           <button
             type="submit"
             disabled={isBusy}
@@ -475,7 +486,7 @@ export function PlaceForm(props: {
                 ? "Save changes"
                 : "Create place"}
           </button>
-        </div>
+        ) : null}
       </form>
     </div>
   );
