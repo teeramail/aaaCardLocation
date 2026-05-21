@@ -4,8 +4,8 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { PlaceRecord } from "@/components/dashboard-shell";
+import { getColorClasses } from "@/components/category-manager";
 import { convertToWebp, blobToBase64 } from "@/lib/image-utils";
-import { placeCategoryValues } from "@/server/api/schemas/place";
 import { trpc } from "@/trpc/react";
 
 const defaultValues = {
@@ -27,7 +27,7 @@ type FormValues = {
   description: string;
   city: string;
   country: string;
-  category: (typeof placeCategoryValues)[number];
+  category: string;
   isMain: boolean;
   latitude: string;
   longitude: string;
@@ -54,6 +54,42 @@ function createValuesFromPlace(place: PlaceRecord | null): FormValues {
     dueDate: place.dueDate ? new Date(place.dueDate).toISOString().slice(0, 10) : "",
     budget: place.budget !== null && place.budget !== undefined ? place.budget.toString() : ""
   };
+}
+
+function CategorySelect(props: { value: string; onChange: (v: string) => void }) {
+  const categoriesQuery = trpc.category.list.useQuery();
+  const categories = categoriesQuery.data ?? [];
+
+  return (
+    <div className="space-y-2">
+      <span className="text-sm font-medium text-slate-200">Category</span>
+      <div className="flex flex-wrap gap-2 pt-1">
+        {categories.map((cat) => {
+          const colorInfo = getColorClasses(cat.color);
+          const isSelected = props.value === cat.slug;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => props.onChange(cat.slug)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                isSelected
+                  ? `${colorInfo.badge} ring-2 ring-white/30`
+                  : "border border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/5"
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${colorInfo.dot}`} />
+              {cat.label}
+            </button>
+          );
+        })}
+        {categories.length === 0 ? (
+          <span className="text-xs text-slate-500">Loading categories…</span>
+        ) : null}
+      </div>
+      <p className="text-xs text-slate-400">Choose the place type shown in the marker and details panel.</p>
+    </div>
+  );
 }
 
 export function PlaceForm(props: {
@@ -285,26 +321,7 @@ export function PlaceForm(props: {
           </span>
         </label>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-200">Category</span>
-          <select
-            value={values.category}
-            onChange={(event) =>
-              setValues((current) => ({
-                ...current,
-                category: event.target.value as FormValues["category"]
-              }))
-            }
-            className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-sky-400"
-          >
-            {placeCategoryValues.map((category) => (
-              <option key={category} value={category}>
-                {category.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-slate-400">Choose the place type shown in the marker and details panel.</p>
-        </label>
+        <CategorySelect value={values.category} onChange={(v) => setValues((c) => ({ ...c, category: v }))} />
 
         <label className="space-y-2">
           <span className="text-sm font-medium text-slate-200">Description</span>

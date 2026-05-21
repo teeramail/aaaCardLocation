@@ -4,7 +4,6 @@ import {
   index,
   integer,
   numeric,
-  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -13,15 +12,6 @@ import {
   varchar,
   json
 } from "drizzle-orm/pg-core";
-
-export const placeCategoryEnum = pgEnum("place_category", [
-  "primary_school",
-  "secondary_school",
-  "university",
-  "office",
-  "home",
-  "other"
-]);
 
 export const users = pgTable(
   "user",
@@ -49,7 +39,7 @@ export const places = pgTable(
     description: text("description"),
     city: varchar("city", { length: 120 }),
     country: varchar("country", { length: 120 }),
-    category: placeCategoryEnum("category").notNull().default("primary_school"),
+    category: varchar("category", { length: 120 }).notNull().default("primary_school"),
     isMain: boolean("is_main").notNull().default(false),
     latitude: numeric("latitude", { precision: 10, scale: 7 }).notNull(),
     longitude: numeric("longitude", { precision: 10, scale: 7 }).notNull(),
@@ -77,6 +67,23 @@ export const userTracks = pgTable(
   },
   (table) => ({
     userIdIndex: index("user_track_user_id_idx").on(table.userId)
+  })
+);
+
+export const placeCategories = pgTable(
+  "user_category",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    label: varchar("label", { length: 120 }).notNull(),
+    slug: varchar("slug", { length: 120 }).notNull(),
+    color: varchar("color", { length: 32 }).notNull().default("slate"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userIdIndex: index("user_category_user_id_idx").on(table.userId),
+    slugUniqueIndex: uniqueIndex("user_category_slug_user_idx").on(table.userId, table.slug)
   })
 );
 
@@ -115,7 +122,8 @@ export const placeImages = pgTable(
 export const usersRelations = relations(users, ({ many }) => ({
   places: many(places),
   placeImages: many(placeImages),
-  userTracks: many(userTracks)
+  userTracks: many(userTracks),
+  placeCategories: many(placeCategories)
 }));
 
 export const placesRelations = relations(places, ({ one, many }) => ({
@@ -144,8 +152,16 @@ export const userTracksRelations = relations(userTracks, ({ one }) => ({
   })
 }));
 
+export const placeCategoriesRelations = relations(placeCategories, ({ one }) => ({
+  user: one(users, {
+    fields: [placeCategories.userId],
+    references: [users.id]
+  })
+}));
+
 export type User = typeof users.$inferSelect;
 export type Place = typeof places.$inferSelect;
 export type PlaceImage = typeof placeImages.$inferSelect;
 export type UserTrack = typeof userTracks.$inferSelect;
+export type PlaceCategory = typeof placeCategories.$inferSelect;
 

@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 
 import type { PlaceRecord } from "@/components/dashboard-shell";
+import { getColorClasses } from "@/components/category-manager";
+import { trpc } from "@/trpc/react";
 
 type SortField =
   | "name"
@@ -16,15 +18,6 @@ type SortField =
   | "createdAt";
 
 type SortDirection = "asc" | "desc";
-
-const CATEGORY_LABELS: Record<PlaceRecord["category"], string> = {
-  primary_school: "Primary School",
-  secondary_school: "Secondary School",
-  university: "University",
-  office: "Office",
-  home: "Home",
-  other: "Other"
-};
 
 function formatCoord(value: number, decimals = 5): string {
   return value.toFixed(decimals);
@@ -125,6 +118,19 @@ const COLUMNS: Column[] = [
   { field: "dueDate", label: "Due Date" },
   { field: "createdAt", label: "Created" }
 ];
+
+function CategoryBadge(props: { slug: string }) {
+  const categoriesQuery = trpc.category.list.useQuery();
+  const cat = categoriesQuery.data?.find((c) => c.slug === props.slug);
+  const colorInfo = getColorClasses(cat?.color ?? "slate");
+  const label = cat?.label ?? props.slug.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colorInfo.badge}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${colorInfo.dot}`} />
+      {label}
+    </span>
+  );
+}
 
 export function PlacesTable(props: {
   places: PlaceRecord[];
@@ -268,9 +274,7 @@ export function PlacesTable(props: {
                   <td className="px-3 py-2.5 text-slate-300">{place.city ?? "\u2014"}</td>
                   <td className="px-3 py-2.5 text-slate-300">{place.country ?? "\u2014"}</td>
                   <td className="px-3 py-2.5">
-                    <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
-                      {CATEGORY_LABELS[place.category]}
-                    </span>
+                    <CategoryBadge slug={place.category} />
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono text-xs text-slate-400">
                     {formatCoord(place.latitude)}

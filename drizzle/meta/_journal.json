@@ -22,6 +22,13 @@
       "when": 1779181499752,
       "tag": "0002_heavy_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779323704849,
+      "tag": "0003_hesitant_la_nuit",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useRef } from "react";
 import type { Session } from "next-auth";
 
+import { CategoryManager } from "@/components/category-manager";
 import { PlaceDetailModal } from "@/components/place-detail-modal";
 import { PlaceForm } from "@/components/place-form";
 import { PlacesMap } from "@/components/places-map";
@@ -21,7 +22,7 @@ export type PlaceRecord = {
   description: string | null;
   city: string | null;
   country: string | null;
-  category: "primary_school" | "secondary_school" | "university" | "office" | "home" | "other";
+  category: string;
   isMain: boolean;
   latitude: number;
   longitude: number;
@@ -40,6 +41,7 @@ export function DashboardShell(props: { session: Session | null }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingPlace, setEditingPlace] = useState<PlaceRecord | null>(null);
   const [modalPlace, setModalPlace] = useState<{ place: PlaceRecord; mode: "view" | "edit" } | null>(null);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -180,16 +182,27 @@ export function DashboardShell(props: { session: Session | null }) {
                   <h2 className="text-lg font-semibold text-white">Saved places</h2>
                   <p className="text-sm text-slate-400">{selectedSummary}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedIds([]);
-                    setStatusMessage("Selection cleared.");
-                  }}
-                  className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/5"
-                >
-                  Clear selection
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {isSignedIn ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCategoryManager(true)}
+                      className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
+                    >
+                      Categories
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedIds([]);
+                      setStatusMessage("Selection cleared.");
+                    }}
+                    className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/5"
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
 
               {isSignedIn ? (
@@ -456,6 +469,8 @@ export function DashboardShell(props: { session: Session | null }) {
             </div>
         </div>
       </div>
+
+      <CategoryManager open={showCategoryManager} onClose={() => setShowCategoryManager(false)} />
 
       <PlaceDetailModal
         place={modalPlace?.place ?? null}
