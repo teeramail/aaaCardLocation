@@ -7,6 +7,7 @@ import type { Session } from "next-auth";
 import { PlaceDetailModal } from "@/components/place-detail-modal";
 import { PlaceForm } from "@/components/place-form";
 import { PlacesMap } from "@/components/places-map";
+import { PlacesTable } from "@/components/places-table";
 import { SelectionMetrics } from "@/components/selection-metrics";
 import { SignOutButton } from "@/components/sign-out-button";
 import { formatDistanceLabel, calculatePathDistance } from "@/lib/utils";
@@ -403,6 +404,19 @@ export function DashboardShell(props: { session: Session | null }) {
             </div>
 
             <SelectionMetrics places={visiblePlaces} />
+
+            <PlacesTable
+              places={visiblePlaces}
+              selectedIds={selectedIds}
+              onToggleSelect={(placeId) => {
+                setSelectedIds((current) =>
+                  current.includes(placeId)
+                    ? current.filter((id) => id !== placeId)
+                    : [...current, placeId]
+                );
+              }}
+              onExpandPlace={(place) => setModalPlace({ place, mode: "view" })}
+            />
 
             <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
               <h2 className="text-lg font-semibold text-white">Selection tips</h2>
