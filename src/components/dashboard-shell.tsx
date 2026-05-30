@@ -1,58 +1,68 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "next-auth";
 
+import { CardDetailModal } from "@/components/card-detail-modal";
 import { CategoryManager } from "@/components/category-manager";
+import type { CardRecord, PlaceRecord } from "@/components/dashboard-types";
 import { PlaceDetailModal } from "@/components/place-detail-modal";
 import { PlaceForm } from "@/components/place-form";
 import { PlacesMap } from "@/components/places-map";
 import { PlacesTable } from "@/components/places-table";
 import { SelectionMetrics } from "@/components/selection-metrics";
 import { SignOutButton } from "@/components/sign-out-button";
-import { formatDistanceLabel, calculatePathDistance } from "@/lib/utils";
-import { trpc } from "@/trpc/react";
 import { parseGpxKml } from "@/lib/gpx-kml-parser";
+import { calculatePathDistance, formatDistanceLabel } from "@/lib/utils";
+import { trpc } from "@/trpc/react";
 
-export type PlaceRecord = {
-  id: string;
-  userId: string;
-  name: string;
-  description: string | null;
-  city: string | null;
-  country: string | null;
-  category: string;
-  isMain: boolean;
-  latitude: number;
-  longitude: number;
-  linkUrl: string | null;
-  dueDate: Date | null;
-  budget: number | null;
-  createdAt: Date;
-  updatedAt: Date;
-  imageUrl: string | null;
-  imageAlt: string | null;
+type CardModalState = {
+  card: CardRecord | null;
+  mode: "view" | "edit";
+  initialPlace?: PlaceRecord | null;
 };
 
 export function DashboardShell(props: { session: Session | null }) {
   const isSignedIn = Boolean(props.session);
   const utils = trpc.useUtils();
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [editingPlace, setEditingPlace] = useState<PlaceRecord | null>(null);
+  const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
+  const [cardModal, setCardModal] = useState<CardModalState | null>(null);
   const [modalPlace, setModalPlace] = useState<{ place: PlaceRecord; mode: "view" | "edit" } | null>(null);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const placesQuery = trpc.place.list.useQuery();
+  const cardsQuery = trpc.card.list.useQuery();
   const tracksQuery = trpc.track.list.useQuery(undefined, { enabled: isSignedIn });
 
-  const deleteMutation = trpc.place.delete.useMutation({
+  const invalidateCardData = async () => {
+    await Promise.all([utils.card.list.invalidate(), utils.card.placeOptions.invalidate()]);
+  };
+
+  const invalidatePlaceAndCardData = async () => {
+    await Promise.all([
+      utils.place.list.invalidate(),
+      utils.card.list.invalidate(),
+      utils.card.placeOptions.invalidate()
+    ]);
+  };
+
+  const deletePlaceMutation = trpc.place.delete.useMutation({
     onSuccess: async () => {
       setStatusMessage("Place deleted.");
-      setEditingPlace(null);
-      await utils.place.list.invalidate();
+      setModalPlace(null);
+      await invalidatePlaceAndCardData();
+    }
+  });
+
+  const deleteCardMutation = trpc.card.delete.useMutation({
+    onSuccess: async () => {
+      setStatusMessage("Card deleted.");
+      setCardModal(null);
+      await invalidateCardData();
     }
   });
 
@@ -78,8 +88,8 @@ export function DashboardShell(props: { session: Session | null }) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (e) => {
-      const content = e.target?.result as string;
+    reader.onload = async (loadEvent) => {
+      const content = loadEvent.target?.result as string;
       const points = parseGpxKml(content);
       if (points.length < 2) {
         setStatusMessage("No valid track points found in file.");
@@ -88,7 +98,7 @@ export function DashboardShell(props: { session: Session | null }) {
 
       createTrackMutation.mutate({
         name: file.name,
-        points: points
+        points
       });
     };
     reader.readAsText(file);
@@ -98,52 +108,112 @@ export function DashboardShell(props: { session: Session | null }) {
   };
 
   const places = useMemo(() => placesQuery.data ?? [], [placesQuery.data]);
+  const cards = useMemo(() => cardsQuery.data ?? [], [cardsQuery.data]);
   const tracks = useMemo(() => tracksQuery.data ?? [], [tracksQuery.data]);
 
   useEffect(() => {
-    setSelectedIds((current) => {
-      const next = current.filter((id) => places.some((place) => place.id === id));
+    setSelectedCardIds((current) => {
+      const next = current.filter((id) => cards.some((card) => card.id === id));
       return next.length === current.length ? current : next;
     });
-  }, [places]);
+  }, [cards]);
 
   useEffect(() => {
-    if (!editingPlace) {
+    if (!cardModal?.card) {
       return;
     }
 
-    const refreshedPlace = places.find((place) => place.id === editingPlace.id) ?? null;
-    if (refreshedPlace !== editingPlace) {
-      setEditingPlace(refreshedPlace);
-    }
-  }, [editingPlace, places]);
-
-  useEffect(() => {
-    if (!editingPlace) {
+    const refreshedCard = cards.find((card) => card.id === cardModal.card?.id) ?? null;
+    if (!refreshedCard) {
+      setCardModal(null);
       return;
     }
 
-    const card = document.getElementById(`place-card-${editingPlace.id}`);
-    card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [editingPlace]);
+    if (refreshedCard !== cardModal.card) {
+      setCardModal({ ...cardModal, card: refreshedCard });
+    }
+  }, [cardModal, cards]);
 
-  const selectedPlaces = useMemo(
-    () => places.filter((place) => selectedIds.includes(place.id)),
-    [places, selectedIds]
+  useEffect(() => {
+    if (!modalPlace) {
+      return;
+    }
+
+    const refreshedPlace = places.find((place) => place.id === modalPlace.place.id) ?? null;
+    if (!refreshedPlace) {
+      setModalPlace(null);
+      return;
+    }
+
+    if (refreshedPlace !== modalPlace.place) {
+      setModalPlace({ ...modalPlace, place: refreshedPlace });
+    }
+  }, [modalPlace, places]);
+
+  const placeIdToCardId = useMemo(() => {
+    return new Map(cards.filter((card) => card.place).map((card) => [card.place!.id, card.id]));
+  }, [cards]);
+
+  const linkedPlaces = useMemo(
+    () => cards.flatMap((card) => (card.place ? [card.place] : [])),
+    [cards]
   );
-  const visiblePlaces = selectedIds.length > 0 ? selectedPlaces : places;
+
+  const linkedPlaceIdSet = useMemo(() => new Set(linkedPlaces.map((place) => place.id)), [linkedPlaces]);
+
+  const unlinkedPlaces = useMemo(
+    () => places.filter((place) => !linkedPlaceIdSet.has(place.id)),
+    [linkedPlaceIdSet, places]
+  );
+
+  const selectedCards = useMemo(
+    () => cards.filter((card) => selectedCardIds.includes(card.id)),
+    [cards, selectedCardIds]
+  );
+
+  const selectedLinkedPlaces = useMemo(
+    () => selectedCards.flatMap((card) => (card.place ? [card.place] : [])),
+    [selectedCards]
+  );
+
+  const visiblePlaces = selectedCardIds.length > 0 ? selectedLinkedPlaces : linkedPlaces;
+  const selectedPlaceIds = selectedCardIds.length > 0 ? selectedLinkedPlaces.map((place) => place.id) : [];
+
+  const toggleCardSelection = (cardId: string) => {
+    setSelectedCardIds((current) =>
+      current.includes(cardId) ? current.filter((id) => id !== cardId) : [...current, cardId]
+    );
+  };
+
+  const togglePlaceSelection = (placeId: string) => {
+    const linkedCardId = placeIdToCardId.get(placeId);
+    if (!linkedCardId) {
+      return;
+    }
+
+    toggleCardSelection(linkedCardId);
+  };
 
   const selectedSummary = useMemo(() => {
-    if (selectedPlaces.length === 0) {
-      return "Showing all saved places.";
+    if (cards.length === 0) {
+      return "Create your first card to start linking locations.";
     }
 
-    if (selectedPlaces.length === 1) {
-      return `Showing ${selectedPlaces[0]?.name}.`;
+    if (selectedCards.length === 0) {
+      return `${cards.length} card${cards.length === 1 ? "" : "s"} available · ${linkedPlaces.length} linked location${linkedPlaces.length === 1 ? "" : "s"}.`;
     }
 
-    return `Showing ${selectedPlaces.length} selected places.`;
-  }, [selectedPlaces]);
+    if (selectedCards.length === 1) {
+      return selectedCards[0]?.place
+        ? `Showing ${selectedCards[0].title} and its linked location.`
+        : `Showing ${selectedCards[0]?.title}. This card has no linked location yet.`;
+    }
+
+    return `Showing ${selectedCards.length} selected cards.`;
+  }, [cards.length, linkedPlaces.length, selectedCards]);
+
+  const linkedCardsCount = linkedPlaces.length;
+  const cardsWithoutLocationCount = cards.length - linkedCardsCount;
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-6 lg:px-8">
@@ -156,7 +226,7 @@ export function DashboardShell(props: { session: Session | null }) {
                 {props.session?.user?.name ? `Welcome, ${props.session.user.name}` : "Welcome to MyMap"}
               </h1>
               <p className="max-w-3xl text-sm text-slate-300">
-                Save places anywhere, select only the ones you want to compare, and let the map fit those selected markers automatically.
+                Create separate cards for each location, keep optional cards without locations, and let the map follow the linked cards you select.
               </p>
             </div>
 
@@ -176,14 +246,22 @@ export function DashboardShell(props: { session: Session | null }) {
         </header>
 
         <aside className="order-3 space-y-6 xl:order-none xl:col-start-1 xl:row-start-2">
-            <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">Saved places</h2>
-                  <p className="text-sm text-slate-400">{selectedSummary}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {isSignedIn ? (
+          <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Location cards</h2>
+                <p className="text-sm text-slate-400">{selectedSummary}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {isSignedIn ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setCardModal({ card: null, mode: "edit", initialPlace: null })}
+                      className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
+                    >
+                      New card
+                    </button>
                     <button
                       type="button"
                       onClick={() => setShowCategoryManager(true)}
@@ -191,286 +269,409 @@ export function DashboardShell(props: { session: Session | null }) {
                     >
                       Categories
                     </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedIds([]);
-                      setStatusMessage("Selection cleared.");
-                    }}
-                    className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/5"
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-
-              {isSignedIn ? (
-                <div className="mb-4">
-                  <input 
-                    type="file" 
-                    accept=".gpx,.kml" 
-                    className="hidden" 
-                    ref={fileInputRef}
-                    onChange={handleFileUpload} 
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={createTrackMutation.isPending}
-                    className="w-full rounded-xl border border-dashed border-sky-400/50 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-300 transition hover:bg-sky-500/20 disabled:opacity-50"
-                  >
-                    {createTrackMutation.isPending ? "Uploading..." : "Import Road (GPX/KML)"}
-                  </button>
-                </div>
-              ) : null}
-
-              {tracks.length > 0 ? (
-                <div className="mb-6 space-y-3">
-                  <h3 className="text-sm font-medium text-slate-300">My Recorded Roads</h3>
-                  {tracks.map(track => (
-                    <div key={track.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/40 p-3">
-                      <div>
-                        <p className="text-sm text-white">{track.name}</p>
-                        <p className="text-xs text-slate-400">
-                          {track.points.length} points · {formatDistanceLabel(calculatePathDistance(track.points))}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteTrackMutation.mutate({ id: track.id })}
-                        disabled={deleteTrackMutation.isPending}
-                        className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-2 py-1 text-[10px] font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="space-y-3">
-                {places.map((place) => {
-                  const isSelected = selectedIds.includes(place.id);
-                  const isEditing = editingPlace?.id === place.id;
-
-                  return (
-                    <div
-                      key={place.id}
-                      id={`place-card-${place.id}`}
-                      className={isSelected ? "rounded-2xl border border-sky-400/50 bg-sky-500/10 p-4" : "rounded-2xl border border-white/10 bg-slate-900/60 p-4"}
-                    >
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(event) => {
-                            setSelectedIds((current) => {
-                              if (event.target.checked) {
-                                return [...current, place.id];
-                              }
-
-                              return current.filter((id) => id !== place.id);
-                            });
-                          }}
-                          className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900 text-sky-400"
-                        />
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-medium text-white">{place.name}</p>
-                              <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
-                                {place.city ?? "Unknown city"} · {place.country ?? "Unknown country"}
-                              </p>
-                            </div>
-                            {place.isMain ? (
-                              <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                                Main
-                              </span>
-                            ) : null}
-                          </div>
-
-                          <p className="mt-2 line-clamp-2 text-sm text-slate-300">
-                            {place.description ?? "No description yet."}
-                          </p>
-
-                          <p className="mt-2 text-xs text-slate-400">
-                            {place.latitude.toFixed(5)}, {place.longitude.toFixed(5)}
-                          </p>
-
-                          {isSignedIn ? (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setModalPlace({ place, mode: "view" })}
-                                className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
-                              >
-                                ⛶ Expand
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingPlace(isEditing ? null : place)}
-                                className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
-                              >
-                                {isEditing ? "Close editor" : "Edit"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteMutation.mutate({ id: place.id })}
-                                disabled={deleteMutation.isPending}
-                                className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-70"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          ) : null}
-
-                          {isSignedIn && isEditing ? (
-                            <div className="mt-4">
-                              <PlaceForm
-                                editingPlace={place}
-                                onCancelEdit={() => setEditingPlace(null)}
-                                onSaved={async (message) => {
-                                  setStatusMessage(message);
-                                  setEditingPlace(null);
-                                  await utils.place.list.invalidate();
-                                }}
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {!placesQuery.isLoading && places.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-400">
-                    No places saved yet. Add your first school or seed sample places.
-                  </div>
+                  </>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCardIds([]);
+                    setStatusMessage("Selection cleared.");
+                  }}
+                  className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/5"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Card coverage</p>
+                <p className="mt-1 text-xl font-semibold text-white">{cards.length}</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  {linkedCardsCount} linked · {cardsWithoutLocationCount} without location
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Locations left to link</p>
+                <p className="mt-1 text-xl font-semibold text-white">{unlinkedPlaces.length}</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  {places.length} total saved location{places.length === 1 ? "" : "s"}
+                </p>
               </div>
             </div>
 
             {isSignedIn ? (
-              <PlaceForm
-                editingPlace={null}
-                onCancelEdit={() => undefined}
-                onSaved={async (message) => {
-                  setStatusMessage(message);
-                  await utils.place.list.invalidate();
-                }}
-              />
-            ) : (
-              <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/70 p-5 text-sm text-slate-300 shadow-xl shadow-sky-950/20 backdrop-blur">
-                <p className="font-medium text-white">Want to add or edit places?</p>
-                <p className="mt-2 text-slate-400">
-                  Sign in to manage the map. Viewing is free for everyone.
-                </p>
-                <Link
-                  href="/login"
-                  className="mt-4 inline-block rounded-2xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-sky-400"
+              <div className="mb-4">
+                <input
+                  type="file"
+                  accept=".gpx,.kml"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={createTrackMutation.isPending}
+                  className="w-full rounded-xl border border-dashed border-sky-400/50 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-300 transition hover:bg-sky-500/20 disabled:opacity-50"
                 >
-                  Sign in
-                </Link>
+                  {createTrackMutation.isPending ? "Uploading..." : "Import Road (GPX/KML)"}
+                </button>
               </div>
-            )}
+            ) : null}
+
+            {tracks.length > 0 ? (
+              <div className="mb-6 space-y-3">
+                <h3 className="text-sm font-medium text-slate-300">My Recorded Roads</h3>
+                {tracks.map((track) => (
+                  <div key={track.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/40 p-3">
+                    <div>
+                      <p className="text-sm text-white">{track.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {track.points.length} points · {formatDistanceLabel(calculatePathDistance(track.points))}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteTrackMutation.mutate({ id: track.id })}
+                      disabled={deleteTrackMutation.isPending}
+                      className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-2 py-1 text-[10px] font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="space-y-3">
+              {cards.map((card) => {
+                const isSelected = selectedCardIds.includes(card.id);
+                const linkedPlace = card.place;
+
+                return (
+                  <div
+                    key={card.id}
+                    id={`location-card-${card.id}`}
+                    className={isSelected ? "overflow-hidden rounded-2xl border border-sky-400/50 bg-sky-500/10" : "overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60"}
+                  >
+                    {linkedPlace?.imageUrl ? (
+                      <div className="relative h-36 w-full">
+                        <Image
+                          src={linkedPlace.imageUrl}
+                          alt={linkedPlace.imageAlt ?? linkedPlace.name}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    ) : null}
+
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleCardSelection(card.id)}
+                          className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900 text-sky-400"
+                        />
+
+                        <div className="min-w-0 flex-1 space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-white">{card.title}</p>
+                              <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
+                                {linkedPlace
+                                  ? [linkedPlace.city, linkedPlace.country].filter(Boolean).join(" · ") || linkedPlace.name
+                                  : "No linked location"}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <span className={linkedPlace ? "rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200" : "rounded-full bg-slate-700/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-200"}>
+                                {linkedPlace ? "Linked" : "No location"}
+                              </span>
+                              {linkedPlace?.isMain ? (
+                                <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
+                                  Main
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <p className="line-clamp-3 text-sm text-slate-300">
+                            {card.description ?? card.notes ?? "No description or notes yet."}
+                          </p>
+
+                          {linkedPlace ? (
+                            <p className="text-xs text-slate-400">
+                              {linkedPlace.latitude.toFixed(5)}, {linkedPlace.longitude.toFixed(5)}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-slate-500">
+                              Select this card to focus your workflow, then link a location when ready.
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setCardModal({ card, mode: "view" })}
+                              className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
+                            >
+                              ⛶ Open card
+                            </button>
+                            {linkedPlace ? (
+                              <button
+                                type="button"
+                                onClick={() => setModalPlace({ place: linkedPlace, mode: "view" })}
+                                className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
+                              >
+                                Open location
+                              </button>
+                            ) : null}
+                            {isSignedIn ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setCardModal({ card, mode: "edit" })}
+                                  className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
+                                >
+                                  Edit card
+                                </button>
+                                {linkedPlace ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => setModalPlace({ place: linkedPlace, mode: "edit" })}
+                                      className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
+                                    >
+                                      Edit location
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deletePlaceMutation.mutate({ id: linkedPlace.id })}
+                                      disabled={deletePlaceMutation.isPending}
+                                      className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                    >
+                                      Delete location
+                                    </button>
+                                  </>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => deleteCardMutation.mutate({ id: card.id })}
+                                  disabled={deleteCardMutation.isPending}
+                                  className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {!cardsQuery.isLoading && cards.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-400">
+                  No cards yet. Create a card first, then optionally link it to a saved location.
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Locations without cards</h2>
+                <p className="text-sm text-slate-400">
+                  These places are saved, but not yet linked to any card.
+                </p>
+              </div>
+              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">
+                {unlinkedPlaces.length} open
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {unlinkedPlaces.map((place) => (
+                <div key={place.id} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-white">{place.name}</p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        {[place.city, place.country].filter(Boolean).join(" · ") || "Location details available"}
+                      </p>
+                    </div>
+                    {place.isMain ? (
+                      <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
+                        Main
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalPlace({ place, mode: "view" })}
+                      className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
+                    >
+                      Open location
+                    </button>
+                    {isSignedIn ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setCardModal({ card: null, mode: "edit", initialPlace: place })}
+                          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-white/5"
+                        >
+                          Create card
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deletePlaceMutation.mutate({ id: place.id })}
+                          disabled={deletePlaceMutation.isPending}
+                          className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          Delete location
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+
+              {unlinkedPlaces.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-400">
+                  Every saved location is already linked to a card.
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {isSignedIn ? (
+            <PlaceForm
+              editingPlace={null}
+              onCancelEdit={() => undefined}
+              onSaved={async (message) => {
+                setStatusMessage(message);
+                await invalidatePlaceAndCardData();
+              }}
+            />
+          ) : (
+            <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/70 p-5 text-sm text-slate-300 shadow-xl shadow-sky-950/20 backdrop-blur">
+              <p className="font-medium text-white">Want to add or edit locations?</p>
+              <p className="mt-2 text-slate-400">
+                Sign in to manage cards and locations. Viewing is free for everyone.
+              </p>
+              <Link
+                href="/login"
+                className="mt-4 inline-block rounded-2xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-sky-400"
+              >
+                Sign in
+              </Link>
+            </div>
+          )}
         </aside>
 
         <div className="order-1 space-y-6 xl:order-none xl:col-start-2 xl:row-start-2">
-            <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-4 shadow-xl shadow-sky-950/20 backdrop-blur">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">Interactive map</h2>
-                  <p className="text-sm text-slate-400">
-                    {selectedIds.length > 0
-                      ? `The map is fitting ${selectedIds.length} selected place${selectedIds.length === 1 ? "" : "s"}.`
-                      : "Select places to filter the map and auto-fit the view."}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
-                  {visiblePlaces.length} visible · {places.length} total
-                </div>
+          <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-4 shadow-xl shadow-sky-950/20 backdrop-blur">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Interactive map</h2>
+                <p className="text-sm text-slate-400">
+                  {selectedCardIds.length > 0
+                    ? `The map is fitting ${selectedLinkedPlaces.length} linked location${selectedLinkedPlaces.length === 1 ? "" : "s"} from ${selectedCards.length} selected card${selectedCards.length === 1 ? "" : "s"}.`
+                    : "Select cards with linked locations to filter the map and auto-fit the view."}
+                </p>
               </div>
 
-              <PlacesMap
-                places={visiblePlaces}
-                tracks={tracks}
-                selectedIds={selectedIds}
-                onToggleSelect={(placeId) => {
-                  setSelectedIds((current) =>
-                    current.includes(placeId)
-                      ? current.filter((id) => id !== placeId)
-                      : [...current, placeId]
-                  );
-                }}
-                onEditPlace={(place) => {
-                  setEditingPlace(place);
-                }}
-                onPlaceSaved={async () => {
-                  setStatusMessage("Place updated.");
-                  await utils.place.list.invalidate();
-                }}
-              />
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+                {visiblePlaces.length} visible · {linkedPlaces.length} linked · {places.length} total locations
+              </div>
             </div>
 
-            <SelectionMetrics places={visiblePlaces} />
-
-            <PlacesTable
+            <PlacesMap
               places={visiblePlaces}
-              selectedIds={selectedIds}
-              onToggleSelect={(placeId) => {
-                setSelectedIds((current) =>
-                  current.includes(placeId)
-                    ? current.filter((id) => id !== placeId)
-                    : [...current, placeId]
-                );
+              tracks={tracks}
+              selectedIds={selectedPlaceIds}
+              onToggleSelect={togglePlaceSelection}
+              onEditPlace={() => undefined}
+              onPlaceSaved={async () => {
+                setStatusMessage("Place updated.");
+                await invalidatePlaceAndCardData();
               }}
-              onExpandPlace={(place) => setModalPlace({ place, mode: "view" })}
             />
+          </div>
 
-            <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
-              <h2 className="text-lg font-semibold text-white">Selection tips</h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-                  <p className="text-sm font-medium text-white">Show only selected places</p>
-                  <p className="mt-2 text-sm text-slate-300">
-                    Choose any 3 places and the map will show only those 3 markers.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-                  <p className="text-sm font-medium text-white">Fit across regions</p>
-                  <p className="mt-2 text-sm text-slate-300">
-                    You can mix Bangkok, Chiang Mai, Taipei, or any other city and the viewport will fit them together.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-                  <p className="text-sm font-medium text-white">Measure straight-line distance</p>
-                  <p className="mt-2 text-sm text-slate-300">
-                    Compare nearby schools quickly with map geometry, including a total selected path length.
-                  </p>
-                </div>
+          <SelectionMetrics places={visiblePlaces} />
+
+          <PlacesTable
+            places={visiblePlaces}
+            selectedIds={selectedPlaceIds}
+            onToggleSelect={togglePlaceSelection}
+            onExpandPlace={(place) => setModalPlace({ place, mode: "view" })}
+          />
+
+          <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-sky-950/20 backdrop-blur">
+            <h2 className="text-lg font-semibold text-white">Selection tips</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                <p className="text-sm font-medium text-white">Select cards, not just places</p>
+                <p className="mt-2 text-sm text-slate-300">
+                  Cards are now the primary unit. Linked cards drive what the map and table show.
+                </p>
               </div>
-
-              {statusMessage ? (
-                <p className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-                  {statusMessage}
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                <p className="text-sm font-medium text-white">Keep optional blank cards</p>
+                <p className="mt-2 text-sm text-slate-300">
+                  A card can exist before you know which location it belongs to. Link it later when ready.
                 </p>
-              ) : null}
-
-              {selectedPlaces.length >= 2 ? (
-                <p className="mt-4 text-sm text-slate-400">
-                  Quick path summary: {selectedPlaces.map((place) => place.name).join(" → ")}.
-                  Use the metrics panel for exact values like {formatDistanceLabel(1500)} style labels.
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                <p className="text-sm font-medium text-white">Track locations still work</p>
+                <p className="mt-2 text-sm text-slate-300">
+                  Your saved roads, place metrics, and modal location editor still work on the linked locations.
                 </p>
-              ) : null}
+              </div>
             </div>
+
+            {statusMessage ? (
+              <p className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                {statusMessage}
+              </p>
+            ) : null}
+
+            {selectedLinkedPlaces.length >= 2 ? (
+              <p className="mt-4 text-sm text-slate-400">
+                Quick path summary: {selectedLinkedPlaces.map((place) => place.name).join(" → ")}.
+                Use the metrics panel for exact values like {formatDistanceLabel(1500)} style labels.
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <CategoryManager open={showCategoryManager} onClose={() => setShowCategoryManager(false)} />
+
+      <CardDetailModal
+        card={cardModal?.card ?? null}
+        open={cardModal !== null}
+        initialMode={cardModal?.mode ?? "edit"}
+        initialPlace={cardModal?.initialPlace ?? null}
+        onClose={() => setCardModal(null)}
+        onSaved={async (_card, message) => {
+          setStatusMessage(message);
+          await invalidateCardData();
+        }}
+        onOpenPlace={(place) => {
+          setCardModal(null);
+          setModalPlace({ place, mode: "view" });
+        }}
+      />
 
       <PlaceDetailModal
         place={modalPlace?.place ?? null}
@@ -479,7 +680,7 @@ export function DashboardShell(props: { session: Session | null }) {
         onClose={() => setModalPlace(null)}
         onSaved={async (message) => {
           setStatusMessage(message);
-          await utils.place.list.invalidate();
+          await invalidatePlaceAndCardData();
         }}
       />
     </main>

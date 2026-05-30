@@ -55,6 +55,27 @@ export const places = pgTable(
   })
 );
 
+export const cards = pgTable(
+  "card",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    placeId: uuid("place_id").references(() => places.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description"),
+    notes: text("notes"),
+    linkUrl: text("link_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date())
+  },
+  (table) => ({
+    userIdIndex: index("card_user_id_idx").on(table.userId),
+    placeIdIndex: index("card_place_id_idx").on(table.placeId),
+    placeIdUniqueIndex: uniqueIndex("card_place_id_unique_idx").on(table.placeId),
+    createdAtIndex: index("card_created_at_idx").on(table.createdAt)
+  })
+);
+
 export const userTracks = pgTable(
   "user_track",
   {
@@ -121,6 +142,7 @@ export const placeImages = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   places: many(places),
+  cards: many(cards),
   placeImages: many(placeImages),
   userTracks: many(userTracks),
   placeCategories: many(placeCategories)
@@ -131,7 +153,19 @@ export const placesRelations = relations(places, ({ one, many }) => ({
     fields: [places.userId],
     references: [users.id]
   }),
+  cards: many(cards),
   images: many(placeImages)
+}));
+
+export const cardsRelations = relations(cards, ({ one }) => ({
+  user: one(users, {
+    fields: [cards.userId],
+    references: [users.id]
+  }),
+  place: one(places, {
+    fields: [cards.placeId],
+    references: [places.id]
+  })
 }));
 
 export const placeImagesRelations = relations(placeImages, ({ one }) => ({
@@ -161,6 +195,7 @@ export const placeCategoriesRelations = relations(placeCategories, ({ one }) => 
 
 export type User = typeof users.$inferSelect;
 export type Place = typeof places.$inferSelect;
+export type Card = typeof cards.$inferSelect;
 export type PlaceImage = typeof placeImages.$inferSelect;
 export type UserTrack = typeof userTracks.$inferSelect;
 export type PlaceCategory = typeof placeCategories.$inferSelect;

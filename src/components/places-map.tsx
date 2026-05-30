@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { MapMouseEvent } from "@vis.gl/react-google-maps";
 
 import { clientEnv } from "@/env-client";
-import type { PlaceRecord } from "@/components/dashboard-shell";
+import type { PlaceRecord } from "@/components/dashboard-types";
 import { PlaceDetailModal } from "@/components/place-detail-modal";
 import { trpc } from "@/trpc/react";
 import { calculateDistanceBetween } from "@/lib/utils";

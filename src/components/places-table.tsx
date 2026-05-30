@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 
-import type { PlaceRecord } from "@/components/dashboard-shell";
+import type { PlaceRecord } from "@/components/dashboard-types";
 import { getColorClasses } from "@/components/category-manager";
 import { trpc } from "@/trpc/react";
 

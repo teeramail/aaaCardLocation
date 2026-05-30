@@ -2,10 +2,11 @@ import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { normalizePlace } from "@/server/api/place-data";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { placeInputSchema, placeSelectionSchema } from "@/server/api/schemas/place";
 import { samplePlaces } from "@/server/db/sample-places";
-import { dismissedSamples, placeImages, places, type Place, type PlaceImage } from "@/server/db/schema";
+import { dismissedSamples, placeImages, places } from "@/server/db/schema";
 
 function buildSampleKey(name: string, city: string | null) {
   return `${name}::${city ?? ""}`;
@@ -14,33 +15,6 @@ function buildSampleKey(name: string, city: string | null) {
 const sampleKeySet = new Set(
   samplePlaces.map((place) => buildSampleKey(place.name, place.city))
 );
-
-type PlaceWithImages = Place & {
-  images: PlaceImage[];
-};
-
-type NormalizedPlace = Omit<Place, "latitude" | "longitude" | "budget"> & {
-  latitude: number;
-  longitude: number;
-  imageUrl: string | null;
-  imageAlt: string | null;
-  linkUrl: string | null;
-  budget: number | null;
-};
-
-function normalizePlace(place: PlaceWithImages): NormalizedPlace {
-  const { images, latitude, longitude, budget, ...rest } = place;
-  const primaryImage = images[0];
-  return {
-    ...rest,
-    latitude: Number(latitude),
-    longitude: Number(longitude),
-    imageUrl: primaryImage?.imageUrl ?? null,
-    imageAlt: primaryImage?.altText ?? null,
-    linkUrl: rest.linkUrl ?? null,
-    budget: budget !== null && budget !== undefined ? Number(budget) : null
-  };
-}
 
 export const placeRouter = createTRPCRouter({
   list: publicProcedure

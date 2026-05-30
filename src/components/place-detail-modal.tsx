@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-import type { PlaceRecord } from "@/components/dashboard-shell";
+import type { PlaceRecord } from "@/components/dashboard-types";
 import { PlaceForm } from "@/components/place-form";
 import { formatAmount } from "@/lib/utils";
 

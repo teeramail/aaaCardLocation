@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { PlaceRecord } from "@/components/dashboard-shell";
+import type { PlaceRecord } from "@/components/dashboard-types";
 import { getColorClasses } from "@/components/category-manager";
 import { convertToWebp, blobToBase64 } from "@/lib/image-utils";
 import { trpc } from "@/trpc/react";

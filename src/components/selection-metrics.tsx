@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import type { PlaceRecord } from "@/components/dashboard-shell";
+import type { PlaceRecord } from "@/components/dashboard-types";
 import { calculateDistanceBetween, formatDistanceLabel } from "@/lib/utils";
 
 export function SelectionMetrics(props: { places: PlaceRecord[] }) {
