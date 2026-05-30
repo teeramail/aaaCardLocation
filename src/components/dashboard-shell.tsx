@@ -9,7 +9,6 @@ import { CardDetailModal } from "@/components/card-detail-modal";
 import { CategoryManager } from "@/components/category-manager";
 import type { CardRecord, PlaceRecord } from "@/components/dashboard-types";
 import { PlaceDetailModal } from "@/components/place-detail-modal";
-import { PlaceForm } from "@/components/place-form";
 import { PlacesMap } from "@/components/places-map";
 import { PlacesTable } from "@/components/places-table";
 import { SelectionMetrics } from "@/components/selection-metrics";
@@ -30,6 +29,8 @@ export function DashboardShell(props: { session: Session | null }) {
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
   const [cardModal, setCardModal] = useState<CardModalState | null>(null);
   const [modalPlace, setModalPlace] = useState<{ place: PlaceRecord; mode: "view" | "edit" } | null>(null);
+  const [addChooserOpen, setAddChooserOpen] = useState(false);
+  const [addPlaceOpen, setAddPlaceOpen] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -257,15 +258,15 @@ export function DashboardShell(props: { session: Session | null }) {
                   <>
                     <button
                       type="button"
-                      onClick={() => setCardModal({ card: null, mode: "edit", initialPlace: null })}
-                      className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
+                      onClick={() => setAddChooserOpen(true)}
+                      className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-sky-400"
                     >
-                      New card
+                      + Add
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowCategoryManager(true)}
-                      className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
+                      className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/5"
                     >
                       Categories
                     </button>
@@ -552,16 +553,7 @@ export function DashboardShell(props: { session: Session | null }) {
             </div>
           </div>
 
-          {isSignedIn ? (
-            <PlaceForm
-              editingPlace={null}
-              onCancelEdit={() => undefined}
-              onSaved={async (message) => {
-                setStatusMessage(message);
-                await invalidatePlaceAndCardData();
-              }}
-            />
-          ) : (
+          {!isSignedIn ? (
             <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/70 p-5 text-sm text-slate-300 shadow-xl shadow-sky-950/20 backdrop-blur">
               <p className="font-medium text-white">Want to add or edit locations?</p>
               <p className="mt-2 text-slate-400">
@@ -574,7 +566,7 @@ export function DashboardShell(props: { session: Session | null }) {
                 Sign in
               </Link>
             </div>
-          )}
+          ) : null}
         </aside>
 
         <div className="order-1 space-y-6 xl:order-none xl:col-start-2 xl:row-start-2">
@@ -654,6 +646,77 @@ export function DashboardShell(props: { session: Session | null }) {
           </div>
         </div>
       </div>
+
+      {addChooserOpen ? (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setAddChooserOpen(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950 p-6 text-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">What do you want to add?</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Pick one to get started. You can always link a card to a location later.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddChooserOpen(false)}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-sm font-medium text-slate-200 transition hover:bg-white/5"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAddChooserOpen(false);
+                  setAddPlaceOpen(true);
+                }}
+                className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-4 text-left transition hover:bg-sky-500/20"
+              >
+                <p className="text-base font-semibold text-white">📍 Add location</p>
+                <p className="mt-1 text-sm text-slate-300">
+                  Save a place on the map with coordinates, image, and details.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAddChooserOpen(false);
+                  setCardModal({ card: null, mode: "edit", initialPlace: null });
+                }}
+                className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-left transition hover:bg-white/5"
+              >
+                <p className="text-base font-semibold text-white">🗂️ Add card</p>
+                <p className="mt-1 text-sm text-slate-300">
+                  Create a card now and optionally link it to a saved location.
+                </p>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <PlaceDetailModal
+        place={null}
+        open={addPlaceOpen}
+        initialMode="edit"
+        onClose={() => setAddPlaceOpen(false)}
+        onSaved={async (message) => {
+          setStatusMessage(message);
+          await invalidatePlaceAndCardData();
+        }}
+      />
 
       <CategoryManager open={showCategoryManager} onClose={() => setShowCategoryManager(false)} />
 

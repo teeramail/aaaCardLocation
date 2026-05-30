@@ -16,14 +16,15 @@ export function PlaceDetailModal(props: {
   onClose: () => void;
   onSaved?: (message: string) => Promise<void>;
 }) {
+  const isCreate = props.open && !props.place;
   const [mode, setMode] = useState<"view" | "edit">(props.initialMode ?? "view");
   const [isFormBusy, setIsFormBusy] = useState(false);
 
   useEffect(() => {
     if (props.open) {
-      setMode(props.initialMode ?? "view");
+      setMode(props.place ? props.initialMode ?? "view" : "edit");
     }
-  }, [props.open, props.initialMode, props.place?.id]);
+  }, [props.open, props.initialMode, props.place, props.place?.id]);
 
   // Lock body scroll while open
   useEffect(() => {
@@ -46,7 +47,7 @@ export function PlaceDetailModal(props: {
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
-  if (!props.open || !props.place) return null;
+  if (!props.open) return null;
 
   const place = props.place;
 
@@ -61,15 +62,15 @@ export function PlaceDetailModal(props: {
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-slate-900/80 px-5 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="truncate text-lg font-semibold">{place.name}</h2>
-            {place.isMain ? (
+            <h2 className="truncate text-lg font-semibold">{place ? place.name : "Add location"}</h2>
+            {place?.isMain ? (
               <span className="rounded bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
                 Main
               </span>
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {mode === "view" && props.onSaved ? (
+            {!isCreate && mode === "view" && props.onSaved ? (
               <button
                 type="button"
                 onClick={() => setMode("edit")}
@@ -82,7 +83,7 @@ export function PlaceDetailModal(props: {
               <>
                 <button
                   type="button"
-                  onClick={() => setMode("view")}
+                  onClick={() => (isCreate ? props.onClose() : setMode("view"))}
                   disabled={isFormBusy}
                   className="rounded-lg border border-white/10 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-white/5 disabled:opacity-50"
                 >
@@ -94,7 +95,7 @@ export function PlaceDetailModal(props: {
                   disabled={isFormBusy}
                   className="rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-medium text-slate-950 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isFormBusy ? "Saving..." : "Save"}
+                  {isFormBusy ? "Saving..." : isCreate ? "Create" : "Save"}
                 </button>
               </>
             ) : null}
@@ -111,13 +112,13 @@ export function PlaceDetailModal(props: {
 
         {/* Body */}
         <div className="flex-1 min-h-0 overflow-y-auto">
-          {mode === "view" ? (
+          {!isCreate && place && mode === "view" ? (
             <ViewMode place={place} />
           ) : (
             <div className="p-5">
               <PlaceForm
-                editingPlace={place}
-                onCancelEdit={() => setMode("view")}
+                editingPlace={place ?? null}
+                onCancelEdit={() => (isCreate ? props.onClose() : setMode("view"))}
                 onSaved={async (message) => {
                   await props.onSaved?.(message);
                   props.onClose();
