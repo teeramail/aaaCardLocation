@@ -60,7 +60,6 @@ export const cards = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    placeId: uuid("place_id").references(() => places.id, { onDelete: "set null" }),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
     notes: text("notes"),
@@ -70,9 +69,24 @@ export const cards = pgTable(
   },
   (table) => ({
     userIdIndex: index("card_user_id_idx").on(table.userId),
-    placeIdIndex: index("card_place_id_idx").on(table.placeId),
-    placeIdUniqueIndex: uniqueIndex("card_place_id_unique_idx").on(table.placeId),
     createdAtIndex: index("card_created_at_idx").on(table.createdAt)
+  })
+);
+
+export const cardLocations = pgTable(
+  "card_location",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    cardId: uuid("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+    placeId: uuid("place_id").notNull().references(() => places.id, { onDelete: "cascade" }),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    cardIdIndex: index("card_location_card_id_idx").on(table.cardId),
+    placeIdIndex: index("card_location_place_id_idx").on(table.placeId),
+    cardPlaceUniqueIndex: uniqueIndex("card_location_card_place_idx").on(table.cardId, table.placeId)
   })
 );
 
@@ -153,17 +167,25 @@ export const placesRelations = relations(places, ({ one, many }) => ({
     fields: [places.userId],
     references: [users.id]
   }),
-  cards: many(cards),
+  cardLinks: many(cardLocations),
   images: many(placeImages)
 }));
 
-export const cardsRelations = relations(cards, ({ one }) => ({
+export const cardsRelations = relations(cards, ({ one, many }) => ({
   user: one(users, {
     fields: [cards.userId],
     references: [users.id]
   }),
+  locations: many(cardLocations)
+}));
+
+export const cardLocationsRelations = relations(cardLocations, ({ one }) => ({
+  card: one(cards, {
+    fields: [cardLocations.cardId],
+    references: [cards.id]
+  }),
   place: one(places, {
-    fields: [cards.placeId],
+    fields: [cardLocations.placeId],
     references: [places.id]
   })
 }));
@@ -196,6 +218,7 @@ export const placeCategoriesRelations = relations(placeCategories, ({ one }) => 
 export type User = typeof users.$inferSelect;
 export type Place = typeof places.$inferSelect;
 export type Card = typeof cards.$inferSelect;
+export type CardLocation = typeof cardLocations.$inferSelect;
 export type PlaceImage = typeof placeImages.$inferSelect;
 export type UserTrack = typeof userTracks.$inferSelect;
 export type PlaceCategory = typeof placeCategories.$inferSelect;

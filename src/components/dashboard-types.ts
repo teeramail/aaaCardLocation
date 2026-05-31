@@ -21,12 +21,13 @@ export type PlaceRecord = {
 export type CardRecord = {
   id: string;
   userId: string;
-  placeId: string | null;
   title: string;
   description: string | null;
   notes: string | null;
   linkUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
-  place: PlaceRecord | null;
+  places: PlaceRecord[];
+  primaryPlaceId: string | null;
+  primaryPlace: PlaceRecord | null;
 };

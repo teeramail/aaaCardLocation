@@ -151,14 +151,29 @@ export function DashboardShell(props: { session: Session | null }) {
     }
   }, [modalPlace, places]);
 
-  const placeIdToCardId = useMemo(() => {
-    return new Map(cards.filter((card) => card.place).map((card) => [card.place!.id, card.id]));
+  const placeIdToCardIds = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const card of cards) {
+      for (const place of card.places) {
+        const list = map.get(place.id) ?? [];
+        list.push(card.id);
+        map.set(place.id, list);
+      }
+    }
+    return map;
   }, [cards]);
 
-  const linkedPlaces = useMemo(
-    () => cards.flatMap((card) => (card.place ? [card.place] : [])),
-    [cards]
-  );
+  const linkedPlaces = useMemo(() => {
+    const map = new Map<string, PlaceRecord>();
+    for (const card of cards) {
+      for (const place of card.places) {
+        if (!map.has(place.id)) {
+          map.set(place.id, place);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [cards]);
 
   const linkedPlaceIdSet = useMemo(() => new Set(linkedPlaces.map((place) => place.id)), [linkedPlaces]);
 
@@ -172,10 +187,17 @@ export function DashboardShell(props: { session: Session | null }) {
     [cards, selectedCardIds]
   );
 
-  const selectedLinkedPlaces = useMemo(
-    () => selectedCards.flatMap((card) => (card.place ? [card.place] : [])),
-    [selectedCards]
-  );
+  const selectedLinkedPlaces = useMemo(() => {
+    const map = new Map<string, PlaceRecord>();
+    for (const card of selectedCards) {
+      for (const place of card.places) {
+        if (!map.has(place.id)) {
+          map.set(place.id, place);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [selectedCards]);
 
   const visiblePlaces = selectedCardIds.length > 0 ? selectedLinkedPlaces : linkedPlaces;
   const selectedPlaceIds = selectedCardIds.length > 0 ? selectedLinkedPlaces.map((place) => place.id) : [];
@@ -187,12 +209,22 @@ export function DashboardShell(props: { session: Session | null }) {
   };
 
   const togglePlaceSelection = (placeId: string) => {
-    const linkedCardId = placeIdToCardId.get(placeId);
-    if (!linkedCardId) {
+    const linkedCardIds = placeIdToCardIds.get(placeId);
+    if (!linkedCardIds || linkedCardIds.length === 0) {
       return;
     }
 
-    toggleCardSelection(linkedCardId);
+    setSelectedCardIds((current) => {
+      const allSelected = linkedCardIds.every((id) => current.includes(id));
+      if (allSelected) {
+        return current.filter((id) => !linkedCardIds.includes(id));
+      }
+      const next = new Set(current);
+      for (const id of linkedCardIds) {
+        next.add(id);
+      }
+      return Array.from(next);
+    });
   };
 
   const selectedSummary = useMemo(() => {
@@ -205,15 +237,16 @@ export function DashboardShell(props: { session: Session | null }) {
     }
 
     if (selectedCards.length === 1) {
-      return selectedCards[0]?.place
-        ? `Showing ${selectedCards[0].title} and its linked location.`
-        : `Showing ${selectedCards[0]?.title}. This card has no linked location yet.`;
+      const only = selectedCards[0]!;
+      return only.places.length > 0
+        ? `Showing ${only.title} and its ${only.places.length} linked location${only.places.length === 1 ? "" : "s"}.`
+        : `Showing ${only.title}. This card has no linked location yet.`;
     }
 
     return `Showing ${selectedCards.length} selected cards.`;
   }, [cards.length, linkedPlaces.length, selectedCards]);
 
-  const linkedCardsCount = linkedPlaces.length;
+  const linkedCardsCount = cards.filter((card) => card.places.length > 0).length;
   const cardsWithoutLocationCount = cards.length - linkedCardsCount;
 
   return (
@@ -349,7 +382,8 @@ export function DashboardShell(props: { session: Session | null }) {
             <div className="space-y-3">
               {cards.map((card) => {
                 const isSelected = selectedCardIds.includes(card.id);
-                const linkedPlace = card.place;
+                const linkedPlaces = card.places;
+                const linkedPlace = card.primaryPlace ?? linkedPlaces[0] ?? null;
 
                 return (
                   <div
@@ -383,14 +417,20 @@ export function DashboardShell(props: { session: Session | null }) {
                             <div>
                               <p className="font-medium text-white">{card.title}</p>
                               <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
-                                {linkedPlace
-                                  ? [linkedPlace.city, linkedPlace.country].filter(Boolean).join(" · ") || linkedPlace.name
-                                  : "No linked location"}
+                                {linkedPlaces.length === 0
+                                  ? "No linked location"
+                                  : linkedPlaces.length === 1 && linkedPlace
+                                    ? [linkedPlace.city, linkedPlace.country].filter(Boolean).join(" · ") || linkedPlace.name
+                                    : `${linkedPlaces.length} linked locations`}
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              <span className={linkedPlace ? "rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200" : "rounded-full bg-slate-700/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-200"}>
-                                {linkedPlace ? "Linked" : "No location"}
+                              <span className={linkedPlaces.length > 0 ? "rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200" : "rounded-full bg-slate-700/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-200"}>
+                                {linkedPlaces.length === 0
+                                  ? "No location"
+                                  : linkedPlaces.length === 1
+                                    ? "Linked"
+                                    : `${linkedPlaces.length} linked`}
                               </span>
                               {linkedPlace?.isMain ? (
                                 <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200">

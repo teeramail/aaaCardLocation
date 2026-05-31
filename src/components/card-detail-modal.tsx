@@ -58,7 +58,8 @@ export function CardDetailModal(props: {
     return null;
   }
 
-  const linkedPlace = card?.place ?? null;
+  const linkedPlaces = card?.places ?? [];
+  const linkedPlace = card?.primaryPlace ?? linkedPlaces[0] ?? null;
   const title = card?.title ?? "Create card";
 
   return (
@@ -75,7 +76,9 @@ export function CardDetailModal(props: {
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold">{title}</h2>
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              {linkedPlace ? "Card linked to one location" : "Card without a linked location"}
+              {linkedPlaces.length === 0
+                ? "Card without a linked location"
+                : `Card linked to ${linkedPlaces.length} location${linkedPlaces.length === 1 ? "" : "s"}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -165,25 +168,42 @@ export function CardDetailModal(props: {
               )}
 
               <div className="space-y-4 text-sm">
-                {linkedPlace ? (
-                  <Section label="Linked location">
-                    <div className="space-y-2">
-                      <p className="font-medium text-white">{linkedPlace.name}</p>
-                      <p className="text-slate-300">
-                        {[linkedPlace.city, linkedPlace.country].filter(Boolean).join(", ") || "Location details available"}
-                      </p>
-                      <p className="font-mono text-xs text-slate-400">
-                        {linkedPlace.latitude.toFixed(6)}, {linkedPlace.longitude.toFixed(6)}
-                      </p>
-                      {onOpenPlace ? (
-                        <button
-                          type="button"
-                          onClick={() => onOpenPlace?.(linkedPlace)}
-                          className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
-                        >
-                          Open location
-                        </button>
-                      ) : null}
+                {linkedPlaces.length > 0 ? (
+                  <Section label={`Linked location${linkedPlaces.length === 1 ? "" : "s"}`}>
+                    <div className="space-y-3">
+                      {linkedPlaces.map((place) => {
+                        const isPrimary = place.id === card.primaryPlaceId;
+                        return (
+                          <div
+                            key={place.id}
+                            className="space-y-1 rounded-2xl border border-white/10 bg-slate-900/60 p-3"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-medium text-white">{place.name}</p>
+                              {isPrimary ? (
+                                <span className="rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-200">
+                                  Primary
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-slate-300">
+                              {[place.city, place.country].filter(Boolean).join(", ") || "Location details available"}
+                            </p>
+                            <p className="font-mono text-xs text-slate-400">
+                              {place.latitude.toFixed(6)}, {place.longitude.toFixed(6)}
+                            </p>
+                            {onOpenPlace ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenPlace?.(place)}
+                                className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-200 transition hover:bg-sky-500/20"
+                              >
+                                Open location
+                              </button>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   </Section>
                 ) : null}
