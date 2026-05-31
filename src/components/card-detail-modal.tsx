@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
+import { CardItemsPanel } from "@/components/card-items-panel";
 import { CardForm } from "@/components/card-form";
 import type { CardRecord, PlaceRecord } from "@/components/dashboard-types";
 
@@ -168,6 +169,8 @@ export function CardDetailModal(props: {
               )}
 
               <div className="space-y-4 text-sm">
+                <CardItemsPanel card={card} />
+
                 {linkedPlaces.length > 0 ? (
                   <Section label={`Linked location${linkedPlaces.length === 1 ? "" : "s"}`}>
                     <div className="space-y-3">

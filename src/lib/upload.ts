@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 import { isObjectStorageEnabled, serverEnv } from "@/env-server";
 
@@ -26,20 +26,30 @@ function getClient() {
   return client;
 }
 
-export async function uploadPlaceImage(params: {
+export function getPublicObjectUrl(key: string) {
+  const baseUrl = serverEnv.AWS_ENDPOINT!.replace(/\/$/, "");
+  const bucketSegment = serverEnv.AWS_ENDPOINT!.includes(serverEnv.AWS_S3_BUCKET!) ? "" : `/${serverEnv.AWS_S3_BUCKET}`;
+
+  return `${baseUrl}${bucketSegment}/${key}`;
+}
+
+export async function uploadUserFile(params: {
   userId: string;
   fileName: string;
   mimeType: string;
   fileBuffer: Buffer;
+  subfolder?: string;
 }) {
   const client = getClient();
   let fileName = params.fileName.replace(/\s+/g, "-").toLowerCase();
-  // Ensure .webp extension for WebP files
   if (params.mimeType === "image/webp" && !fileName.endsWith(".webp")) {
     fileName = fileName.replace(/\.[^.]+$/, ".webp");
   }
   const keyPrefix = serverEnv.AWS_S3_ROOT_FOLDER ? `${serverEnv.AWS_S3_ROOT_FOLDER}/` : "";
-  const key = `${keyPrefix}${params.userId}/${Date.now()}-${fileName}`;
+  const normalizedSubfolder = params.subfolder?.replace(/^\/+|\/+$/g, "");
+  const key = normalizedSubfolder
+    ? `${keyPrefix}${params.userId}/${normalizedSubfolder}/${Date.now()}-${fileName}`
+    : `${keyPrefix}${params.userId}/${Date.now()}-${fileName}`;
 
   await client.send(
     new PutObjectCommand({
@@ -51,11 +61,32 @@ export async function uploadPlaceImage(params: {
     })
   );
 
-  const baseUrl = serverEnv.AWS_ENDPOINT!.replace(/\/$/, "");
-  const bucketSegment = serverEnv.AWS_ENDPOINT!.includes(serverEnv.AWS_S3_BUCKET!) ? "" : `/${serverEnv.AWS_S3_BUCKET}`;
+  return {
+    key,
+    fileUrl: getPublicObjectUrl(key)
+  };
+}
+
+export async function deleteStoredFile(key: string) {
+  const client = getClient();
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: serverEnv.AWS_S3_BUCKET,
+      Key: key
+    })
+  );
+}
+
+export async function uploadPlaceImage(params: {
+  userId: string;
+  fileName: string;
+  mimeType: string;
+  fileBuffer: Buffer;
+}) {
+  const { key, fileUrl } = await uploadUserFile(params);
 
   return {
     key,
-    imageUrl: `${baseUrl}${bucketSegment}/${key}`
+    imageUrl: fileUrl
   };
 }

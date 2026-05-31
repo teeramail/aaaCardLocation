@@ -43,6 +43,13 @@
       "when": 1780218699830,
       "tag": "0005_stiff_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780233061882,
+      "tag": "0006_wise_dragon_man",
+      "breakpoints": true
     }
   ]
 }

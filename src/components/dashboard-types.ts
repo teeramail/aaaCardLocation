@@ -31,3 +31,26 @@ export type CardRecord = {
   primaryPlaceId: string | null;
   primaryPlace: PlaceRecord | null;
 };
+
+export type CardItemMediaRecord = {
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  fileSize: number;
+  storageKey: string;
+  url: string;
+  subfolder?: string;
+};
+
+export type CardItemRecord = {
+  id: string;
+  cardId: string;
+  nameTitle: string;
+  description: string | null;
+  linkUrl: string | null;
+  value: number;
+  itemDate: Date | null;
+  media: CardItemMediaRecord | null;
+  createdAt: Date;
+  updatedAt: Date;
+};

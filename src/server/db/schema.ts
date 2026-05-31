@@ -73,6 +73,27 @@ export const cards = pgTable(
   })
 );
 
+export const cardItems = pgTable(
+  "card_item",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    cardId: uuid("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+    nameTitle: text("name_title").notNull(),
+    description: text("description"),
+    linkUrl: text("link_url"),
+    value: numeric("value", { precision: 12, scale: 2 }).notNull().default("0"),
+    itemDate: timestamp("item_date", { withTimezone: true }),
+    media: text("media"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date())
+  },
+  (table) => ({
+    cardIdIndex: index("card_item_card_id_idx").on(table.cardId),
+    itemDateIndex: index("card_item_date_idx").on(table.itemDate),
+    createdAtIndex: index("card_item_created_at_idx").on(table.createdAt)
+  })
+);
+
 export const cardLocations = pgTable(
   "card_location",
   {
@@ -176,7 +197,15 @@ export const cardsRelations = relations(cards, ({ one, many }) => ({
     fields: [cards.userId],
     references: [users.id]
   }),
+  items: many(cardItems),
   locations: many(cardLocations)
+}));
+
+export const cardItemsRelations = relations(cardItems, ({ one }) => ({
+  card: one(cards, {
+    fields: [cardItems.cardId],
+    references: [cards.id]
+  })
 }));
 
 export const cardLocationsRelations = relations(cardLocations, ({ one }) => ({
@@ -218,6 +247,7 @@ export const placeCategoriesRelations = relations(placeCategories, ({ one }) => 
 export type User = typeof users.$inferSelect;
 export type Place = typeof places.$inferSelect;
 export type Card = typeof cards.$inferSelect;
+export type CardItem = typeof cardItems.$inferSelect;
 export type CardLocation = typeof cardLocations.$inferSelect;
 export type PlaceImage = typeof placeImages.$inferSelect;
 export type UserTrack = typeof userTracks.$inferSelect;
