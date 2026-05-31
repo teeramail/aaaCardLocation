@@ -65,6 +65,7 @@ export function CardItemsPanel(props: { card: CardRecord }) {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [fullscreenItem, setFullscreenItem] = useState<CardItemRecord | null>(null);
   const [formValues, setFormValues] = useState<ItemFormValues>(defaultValues);
   const [formError, setFormError] = useState<string | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
@@ -216,6 +217,10 @@ export function CardItemsPanel(props: { card: CardRecord }) {
 
   return (
     <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+      {fullscreenItem ? (
+        <ItemFullscreenModal item={fullscreenItem} onClose={() => setFullscreenItem(null)} />
+      ) : null}
+
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -250,7 +255,17 @@ export function CardItemsPanel(props: { card: CardRecord }) {
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-white/10">
-        <table className="min-w-full text-left text-sm text-slate-200">
+        <table className="min-w-[920px] table-fixed text-left text-sm text-slate-200">
+          <colgroup>
+            <col className="w-[16%]" />
+            <col className="w-[18%]" />
+            <col className="w-[16%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[11%]" />
+            <col className="w-[7%]" />
+          </colgroup>
           <thead className="bg-slate-950/80 text-xs uppercase tracking-wider text-slate-400">
             <tr>
               <th className="px-3 py-2">Name / Title</th>
@@ -275,15 +290,24 @@ export function CardItemsPanel(props: { card: CardRecord }) {
                 const isImage = item.media?.mimeType.startsWith("image/") ?? false;
                 return (
                   <tr key={item.id} className="border-t border-white/10 align-top">
-                    <td className="px-3 py-3 font-medium text-white">{item.nameTitle}</td>
-                    <td className="px-3 py-3 text-slate-300">{item.description || "-"}</td>
+                    <td className="px-3 py-3 font-medium text-white">
+                      <span className="block truncate" title={item.nameTitle}>
+                        {item.nameTitle}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-slate-300">
+                      <span className="line-clamp-2 break-words" title={item.description ?? undefined}>
+                        {item.description || "-"}
+                      </span>
+                    </td>
                     <td className="px-3 py-3">
                       {item.linkUrl ? (
                         <a
                           href={item.linkUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="break-all text-sky-300 hover:underline"
+                          title={item.linkUrl}
+                          className="block max-w-full truncate whitespace-nowrap text-sky-300 hover:underline"
                         >
                           {item.linkUrl}
                         </a>
@@ -323,7 +347,9 @@ export function CardItemsPanel(props: { card: CardRecord }) {
                               Open file
                             </a>
                           )}
-                          <div className="text-xs text-slate-400">{item.media.originalName}</div>
+                          <div className="truncate text-xs text-slate-400" title={item.media.originalName}>
+                            {item.media.originalName}
+                          </div>
                         </div>
                       ) : (
                         <span className="text-slate-500">-</span>
@@ -334,6 +360,13 @@ export function CardItemsPanel(props: { card: CardRecord }) {
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFullscreenItem(item)}
+                          className="rounded-lg border border-sky-400/30 bg-sky-500/10 px-2 py-1 text-xs text-sky-200 hover:bg-sky-500/20"
+                        >
+                          View
+                        </button>
                         <button
                           type="button"
                           onClick={() => startEditing(item)}
@@ -494,6 +527,110 @@ export function CardItemsPanel(props: { card: CardRecord }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ItemFullscreenModal(props: { item: CardItemRecord; onClose: () => void }) {
+  const { item, onClose } = props;
+  const isImage = item.media?.mimeType.startsWith("image/") ?? false;
+
+  return (
+    <div
+      className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/90 p-3 text-white backdrop-blur-sm sm:p-6"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-none border border-white/10 bg-slate-950 shadow-2xl sm:h-[92vh] sm:rounded-2xl">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-slate-900/90 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Card item</p>
+            <h3 className="truncate text-lg font-semibold text-white">{item.nameTitle}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-white/5"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+            <div className="min-h-[280px] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/50">
+              {item.media ? (
+                isImage ? (
+                  <div className="relative h-[55vh] min-h-[280px] w-full bg-slate-950">
+                    <Image
+                      src={item.media.url}
+                      alt={item.media.originalName}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                      sizes="100vw"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-[55vh] min-h-[280px] items-center justify-center p-6">
+                    <a
+                      href={item.media.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400"
+                    >
+                      Open file
+                    </a>
+                  </div>
+                )
+              ) : (
+                <div className="flex h-[55vh] min-h-[280px] items-center justify-center text-sm text-slate-500">
+                  No media attached
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+              <ItemField label="Name / Title">{item.nameTitle}</ItemField>
+              <ItemField label="Description">
+                <span className="whitespace-pre-wrap break-words">{item.description || "-"}</span>
+              </ItemField>
+              <ItemField label="Link">
+                {item.linkUrl ? (
+                  <a
+                    href={item.linkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all text-sky-300 hover:underline"
+                  >
+                    {item.linkUrl}
+                  </a>
+                ) : (
+                  "-"
+                )}
+              </ItemField>
+              <ItemField label="Value">{currencyFormatter.format(item.value)}</ItemField>
+              <ItemField label="Date">
+                {item.itemDate ? new Date(item.itemDate).toLocaleDateString() : "-"}
+              </ItemField>
+              <ItemField label="Media">{item.media?.originalName ?? "-"}</ItemField>
+              <ItemField label="DB Timestamp">{new Date(item.createdAt).toLocaleString()}</ItemField>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItemField(props: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs font-medium uppercase tracking-wider text-slate-500">{props.label}</div>
+      <div className="mt-1 text-sm leading-relaxed text-slate-100">{props.children}</div>
     </div>
   );
 }
