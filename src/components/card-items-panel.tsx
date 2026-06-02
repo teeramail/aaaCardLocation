@@ -257,14 +257,14 @@ export function CardItemsPanel(props: { card: CardRecord }) {
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="min-w-[920px] table-fixed text-left text-sm text-slate-200">
           <colgroup>
+            <col className="w-[15%]" />
+            <col className="w-[17%]" />
             <col className="w-[16%]" />
-            <col className="w-[18%]" />
-            <col className="w-[16%]" />
-            <col className="w-[10%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[12%]" />
             <col className="w-[10%]" />
             <col className="w-[12%]" />
-            <col className="w-[11%]" />
-            <col className="w-[7%]" />
           </colgroup>
           <thead className="bg-slate-950/80 text-xs uppercase tracking-wider text-slate-400">
             <tr>
@@ -296,7 +296,7 @@ export function CardItemsPanel(props: { card: CardRecord }) {
                       </span>
                     </td>
                     <td className="px-3 py-3 text-slate-300">
-                      <span className="line-clamp-2 break-words" title={item.description ?? undefined}>
+                      <span className="block max-h-10 overflow-hidden break-words" title={item.description ?? undefined}>
                         {item.description || "-"}
                       </span>
                     </td>
